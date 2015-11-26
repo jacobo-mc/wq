@@ -226,51 +226,64 @@ M.max_savegames = 12;
 M.filenames = [];
 M.loadable = [];
 M.removable = [];
+M.loadingSavesPromise = Promise.resolve();
 
 M.ScanSaves = function()
 {
-	var searchpaths = COM.searchpaths, i, j, search = 'Quake.' + COM.gamedir[0].filename + '/s', f, version, name, j, c;
+	var searchpaths = COM.searchpaths, i = 0, j, search = 'Quake.' + COM.gamedir[0].filename + '/s', version, name, j, c;
 	COM.searchpaths = COM.gamedir;
-	for (i = 0; i < M.max_savegames; ++i)
-	{
-		f = localStorage.getItem(search + i + '.sav');
-		if (f != null)
-			M.removable[i] = true;
+    
+    function scanSave(saveNum) {
+        var promise;
+		var localFile = f = localStorage.getItem(search + saveNum + '.sav');
+		if (localFile != null){
+            promise = Promise.resolve(localFile);
+			M.removable[saveNum] = true;
+        }
 		else
 		{
-			M.removable[i] = false;
-			f = COM.LoadTextFile('s' + i + '.sav');
-			if (f == null)
-			{
-				M.filenames[i] = '--- UNUSED SLOT ---';
-				M.loadable[i] = false;
-				continue;
-			}
+			M.removable[saveNum] = false;
+			promise = COM.LoadTextFile('s' + saveNum + '.sav');
 		}
-		for (version = 0; version < f.length; ++version)
-		{
-			c = f.charCodeAt(version);
-			if (c === 10)
-			{
-				++version;
-				break;
-			}
-		}
-		name = [];
-		for (j = 0; j <= 39; ++j)
-		{
-			c = f.charCodeAt(version + j);
-			if (c === 13)
-				break;
-			if (c === 95)
-				name[j] = ' ';
-			else
-				name[j] = String.fromCharCode(c);
-		}
-		M.filenames[i] = name.join('');
-		M.loadable[i] = true;
-	}
-	COM.searchpaths = searchpaths;
+        return promise.then(function(f) {
+            if (f == null)
+            {
+                M.filenames[saveNum] = '--- UNUSED SLOT ---';
+                M.loadable[saveNum] = false;
+                return;
+            }
+            for (version = 0; version < f.length; ++version)
+            {
+                c = f.charCodeAt(version);
+                if (c === 10)
+                {
+                    ++version;
+                    break;
+                }
+            }
+            name = [];
+            for (j = 0; j <= 39; ++j)
+            {
+                c = f.charCodeAt(version + j);
+                if (c === 13)
+                    break;
+                if (c === 95)
+                    name[j] = ' ';
+                else
+                    name[j] = String.fromCharCode(c);
+            }
+            M.filenames[saveNum] = name.join('');
+            M.loadable[saveNum] = true;
+        });
+    }
+    
+    var promises = [];
+    for(i = 0; i < M.max_savegames; i++) {
+        promises.push(scanSave(i));
+    }
+    M.loadingSavesPromise = Promise.all(promises).then(function(){
+        COM.searchpaths = searchpaths;
+    });
 };
 
 M.Menu_Load_f = function()
@@ -295,18 +308,22 @@ M.Load_Draw = function()
 {
 	M.DrawPic(160 - (M.p_load.width >> 1), 4, M.p_load);
 	var i;
-	for (i = 0; i < M.max_savegames; ++i)
-		M.Print(16, 32 + (i << 3), M.filenames[i]);
-	M.DrawCharacter(8, 32 + (M.load_cursor << 3), 12 + ((Host.realtime * 4.0) & 1));
+    M.loadingSavesPromise.then(function(){
+        for (i = 0; i < M.max_savegames; ++i)
+            M.Print(16, 32 + (i << 3), M.filenames[i]);
+        M.DrawCharacter(8, 32 + (M.load_cursor << 3), 12 + ((Host.realtime * 4.0) & 1));
+    });
 };
 
 M.Save_Draw = function()
 {
 	M.DrawPic(160 - (M.p_save.width >> 1), 4, M.p_save);
 	var i;
-	for (i = 0; i < M.max_savegames; ++i)
-		M.Print(16, 32 + (i << 3), M.filenames[i]);
-	M.DrawCharacter(8, 32 + (M.load_cursor << 3), 12 + ((Host.realtime * 4.0) & 1));
+    M.loadingSavesPromise.then(function(){
+        for (i = 0; i < M.max_savegames; ++i)
+            M.Print(16, 32 + (i << 3), M.filenames[i]);
+        M.DrawCharacter(8, 32 + (M.load_cursor << 3), 12 + ((Host.realtime * 4.0) & 1));
+    });
 };
 
 M.Load_Key = function(k)

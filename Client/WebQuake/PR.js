@@ -614,6 +614,7 @@ PR.ExecuteProgram = function(fnum)
 
 	function processOne() {
 		
+        var num = fnum;
 		++s;
 		st = PR.statements[s];
 		if (--runaway === 0)
@@ -839,6 +840,9 @@ PR.ExecuteProgram = function(fnum)
 			} else if(ret === true) {
 				return processAll();
 			} else {
+                if(ret) {
+                    debugger;
+                }
 				resolve();
 			}
 		}

@@ -1589,6 +1589,14 @@ SV.Physics_Client = function(ent)
 	PR.globals_float[PR.globalvars.time] = SV.server.time;
 	PR.globals_int[PR.globalvars.self] = ent.num;
 	var movetype;
+    
+    function end(){
+        SV.LinkEdict(ent, true);
+        PR.globals_float[PR.globalvars.time] = SV.server.time;
+        PR.globals_int[PR.globalvars.self] = ent.num;
+        
+        return PR.ExecuteProgram(PR.globals_int[PR.globalvars.PlayerPostThink]);
+    }
 	
 	function doThink() {
 		return SV.RunThink(ent).then(function(ret) {
@@ -1617,11 +1625,6 @@ SV.Physics_Client = function(ent)
 				Sys.Error('SV.Physics_Client: bad movetype ' + movetype);
 			}
 			
-			SV.LinkEdict(ent, true);
-			PR.globals_float[PR.globalvars.time] = SV.server.time;
-			PR.globals_int[PR.globalvars.self] = ent.num;
-			
-			return PR.ExecuteProgram(PR.globals_int[PR.globalvars.PlayerPostThink]);
 		});
 	}
 	
@@ -1630,8 +1633,8 @@ SV.Physics_Client = function(ent)
 			SV.CheckVelocity(ent);
 			movetype = ent.v_float[PR.entvars.movetype] >> 0;
 			if ((movetype === SV.movetype.toss) || (movetype === SV.movetype.bounce))
-				return SV.Physics_Toss(ent).then(doThink);
-			return doThink();
+				return SV.Physics_Toss(ent).then(end);
+			return doThink().then(end);
 		});
 };
 
@@ -1650,41 +1653,25 @@ SV.Physics_Noclip = function(ent)
 
 SV.CheckWaterTransition = function(ent)
 {
-	return new Promise(function(resolve,reject) {
-		
-		var cont = SV.PointContents(ED.Vector(ent, PR.entvars.origin));
-		if (ent.v_float[PR.entvars.watertype] === 0.0)
-		{
-			ent.v_float[PR.entvars.watertype] = cont;
-			ent.v_float[PR.entvars.waterlevel] = 1.0;
-			return resolve();
-		}
-		if (cont <= Mod.contents.water)
-		{
-			if (ent.v_float[PR.entvars.watertype] === Mod.contents.empty){
-				SV.StartSound(ent, 0, 'misc/h2ohit1.wav', 255, 1.0).then(function(){
-					ent.v_float[PR.entvars.watertype] = cont;
-					ent.v_float[PR.entvars.waterlevel] = 1.0;
-					return resolve();
-				});
-			} else {
-				ent.v_float[PR.entvars.watertype] = cont;
-				ent.v_float[PR.entvars.waterlevel] = 1.0;
-				return resolve();
-			}
-		}
-		if (ent.v_float[PR.entvars.watertype] !== Mod.contents.empty) {
-			SV.StartSound(ent, 0, 'misc/h2ohit1.wav', 255, 1.0).then(function(){
-					ent.v_float[PR.entvars.watertype] = Mod.contents.empty;
-					ent.v_float[PR.entvars.waterlevel] = cont;
-					return resolve();
-				});
-		} else {
-			ent.v_float[PR.entvars.watertype] = Mod.contents.empty;
-			ent.v_float[PR.entvars.waterlevel] = cont;
-			return resolve();
-		}
-	});
+	var cont = SV.PointContents(ED.Vector(ent, PR.entvars.origin));
+	if (ent.v_float[PR.entvars.watertype] === 0.0)
+	{
+		ent.v_float[PR.entvars.watertype] = cont;
+		ent.v_float[PR.entvars.waterlevel] = 1.0;
+		return;
+	}
+	if (cont <= Mod.contents.water)
+	{
+		if (ent.v_float[PR.entvars.watertype] === Mod.contents.empty)
+			SV.StartSound(ent, 0, 'misc/h2ohit1.wav', 255, 1.0);
+		ent.v_float[PR.entvars.watertype] = cont;
+		ent.v_float[PR.entvars.waterlevel] = 1.0;
+		return;
+	}
+	if (ent.v_float[PR.entvars.watertype] !== Mod.contents.empty)
+		SV.StartSound(ent, 0, 'misc/h2ohit1.wav', 255, 1.0);
+	ent.v_float[PR.entvars.watertype] = Mod.contents.empty;
+	ent.v_float[PR.entvars.waterlevel] = cont;
 };
 
 SV.Physics_Toss = function(ent)
@@ -1724,7 +1711,7 @@ SV.Physics_Toss = function(ent)
 				ent.v_float[PR.entvars.avelocity] = ent.v_float[PR.entvars.avelocity1] = ent.v_float[PR.entvars.avelocity2] = 0.0;
 			}
 		}
-		return SV.CheckWaterTransition(ent);
+		SV.CheckWaterTransition(ent);
 	});
 };
 
@@ -1739,7 +1726,7 @@ SV.Physics_Step = function(ent)
 		SV.FlyMove(ent, Host.frametime);
 		SV.LinkEdict(ent, true);
 		if (((ent.v_float[PR.entvars.flags] & SV.fl.onground) !== 0) && (hitsound === true))
-			maybePromise = SV.StartSound(ent, 0, 'demon/dland2.wav', 255, 1.0);
+			maybePromise = SV.StartSound(ent, 0, 'demon/dland2.wav', 255, 1.0) || maybePromise;
 	}
 	return maybePromise
 		.then(SV.RunThink(ent))

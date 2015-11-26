@@ -147,17 +147,21 @@ window.onload = function()
 				window[Sys.events[i]] = Sys[Sys.events[i]];
 			Sys.looping = true;
 			function continueLoop(timeIn) {
+                // if(COM.inAsync){
+                //     debugger;
+                // }
 				var putzAroundTime = Math.max((1000.0 / Sys.maxFps) - (Date.now() - timeIn), 0);
 				setTimeout(loop, putzAroundTime);
 			}
 			function loop() {
 				var timeIn = Date.now();
 				var ret = Host.Frame();
+                
 				if(!Sys.looping)
 					return;
 					
 				COM.MaybePromise(ret, function(){ continueLoop(timeIn);});
-			}
+        }
 			
 			loop();
 		});

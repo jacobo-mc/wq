@@ -554,13 +554,13 @@ Host.Changelevel_f = function()
 		return;
 	}
 	SV.SaveSpawnparms();
-	SV.SpawnServer(Cmd.argv[1]);
+	return SV.SpawnServer(Cmd.argv[1]);
 };
 
 Host.Restart_f = function()
 {
 	if ((CL.cls.demoplayback !== true) && (SV.server.active === true) && (Cmd.client !== true))
-		SV.SpawnServer(PR.GetString(PR.globals_int[PR.globalvars.mapname]));
+		return SV.SpawnServer(PR.GetString(PR.globals_int[PR.globalvars.mapname]));
 };
 
 Host.Reconnect_f = function()
@@ -721,94 +721,97 @@ Host.Loadgame_f = function()
 	CL.cls.demonum = -1;
 	var name = COM.DefaultExtension(Cmd.argv[1], '.sav');
 	Con.Print('Loading game from ' + name + '...\n');
-	var f = COM.LoadTextFile(name);
-	if (f == null)
-	{
-		Con.Print('ERROR: couldn\'t open.\n');
-		return;
-	}
-	f = f.split('\n');
-
-	var i;
-
-	var tfloat = parseFloat(f[0]);
-	if (tfloat !== 5)
-	{
-		Con.Print('Savegame is version ' + tfloat + ', not 5\n');
-		return;
-	}
-
-	var spawn_parms = [];
-	for (i = 0; i <= 15; ++i)
-		spawn_parms[i] = parseFloat(f[2 + i]);
-
-	Host.current_skill = (parseFloat(f[18]) + 0.1) >> 0;
-	Cvar.SetValue('skill', Host.current_skill);
-
-	var time = parseFloat(f[20]);
-	CL.Disconnect();
-	SV.SpawnServer(f[19]);
-	if (SV.server.active !== true)
-	{
-		Con.Print('Couldn\'t load map\n');
-		return;
-	}
-	SV.server.paused = true;
-	SV.server.loadgame = true;
-
-	for (i = 0; i <= 63; ++i)
-		SV.server.lightstyles[i] = f[21 + i];
-
-	var token, keyname, key, i;
-
-	if (f[85] !== '{')
-		Sys.Error('First token isn\'t a brace');
-	for (i = 86; i < f.length; ++i)
-	{
-		if (f[i] === '}')
-		{
-			++i;
-			break;
-		}
-		token = f[i].split('"');
-		keyname = token[1];
-		key = ED.FindGlobal(keyname);
-		if (key == null)
-		{
-			Con.Print('\'' + keyname + '\' is not a global\n');
-			continue;
-		}
-		if (ED.ParseEpair(PR.globals, key, token[3]) !== true)
-			Host.Error('Host.Loadgame_f: parse error');
-	}
-
-	f[f.length] = '';
-	var entnum = 0, ent, j;
-	var data = f.slice(i).join('\n');
-	for (;;)
-	{
-		data = COM.Parse(data);
-		if (data == null)
-			break;
-		if (COM.token.charCodeAt(0) !== 123)
-			Sys.Error('Host.Loadgame_f: found ' + COM.token + ' when expecting {');
-		ent = SV.server.edicts[entnum++];
-		for (j = 0; j < PR.entityfields; ++j)
-			ent.v_int[j] = 0;
-		ent.free = false;
-		data = ED.ParseEdict(data, ent);
-		if (ent.free !== true)
-			SV.LinkEdict(ent);
-	}
-	SV.server.num_edicts = entnum;
-
-	SV.server.time = time;
-	var client = SV.svs.clients[0];
-	client.spawn_parms = [];
-	for (i = 0; i <= 15; ++i)
-		client.spawn_parms[i] = spawn_parms[i];
-	CL.EstablishConnection('local');
-	Host.Reconnect_f();
+	return COM.LoadTextFile(name).then(function(f){
+        if (f == null)
+        {
+            Con.Print('ERROR: couldn\'t open.\n');
+            return;
+        }
+        f = f.split('\n');
+    
+        var i;
+    
+        var tfloat = parseFloat(f[0]);
+        if (tfloat !== 5)
+        {
+            Con.Print('Savegame is version ' + tfloat + ', not 5\n');
+            return;
+        }
+    
+        var spawn_parms = [];
+        for (i = 0; i <= 15; ++i)
+            spawn_parms[i] = parseFloat(f[2 + i]);
+    
+        Host.current_skill = (parseFloat(f[18]) + 0.1) >> 0;
+        Cvar.SetValue('skill', Host.current_skill);
+    
+        var time = parseFloat(f[20]);
+        CL.Disconnect();
+        
+        return SV.SpawnServer(f[19]).then(function(){
+            if (SV.server.active !== true)
+            {
+                Con.Print('Couldn\'t load map\n');
+                return;
+            }
+            SV.server.paused = true;
+            SV.server.loadgame = true;
+        
+            for (i = 0; i <= 63; ++i)
+                SV.server.lightstyles[i] = f[21 + i];
+        
+            var token, keyname, key, i;
+        
+            if (f[85] !== '{')
+                Sys.Error('First token isn\'t a brace');
+            for (i = 86; i < f.length; ++i)
+            {
+                if (f[i] === '}')
+                {
+                    ++i;
+                    break;
+                }
+                token = f[i].split('"');
+                keyname = token[1];
+                key = ED.FindGlobal(keyname);
+                if (key == null)
+                {
+                    Con.Print('\'' + keyname + '\' is not a global\n');
+                    continue;
+                }
+                if (ED.ParseEpair(PR.globals, key, token[3]) !== true)
+                    Host.Error('Host.Loadgame_f: parse error');
+            }
+        
+            f[f.length] = '';
+            var entnum = 0, ent, j;
+            var data = f.slice(i).join('\n');
+            for (;;)
+            {
+                data = COM.Parse(data);
+                if (data == null)
+                    break;
+                if (COM.token.charCodeAt(0) !== 123)
+                    Sys.Error('Host.Loadgame_f: found ' + COM.token + ' when expecting {');
+                ent = SV.server.edicts[entnum++];
+                for (j = 0; j < PR.entityfields; ++j)
+                    ent.v_int[j] = 0;
+                ent.free = false;
+                data = ED.ParseEdict(data, ent);
+                if (ent.free !== true)
+                    SV.LinkEdict(ent);
+            }
+            SV.server.num_edicts = entnum;
+        
+            SV.server.time = time;
+            var client = SV.svs.clients[0];
+            client.spawn_parms = [];
+            for (i = 0; i <= 15; ++i)
+                client.spawn_parms[i] = spawn_parms[i];
+            CL.EstablishConnection('local');
+            Host.Reconnect_f();
+        });
+    });
 };
 
 Host.Name_f = function()

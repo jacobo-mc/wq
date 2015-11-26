@@ -3,6 +3,8 @@ COM = {};
 COM.argv = [];
 
 COM.standard_quake = true;
+COM.inAsync = false;
+COM.asyncTrace = {};
 
 COM.DefaultExtension = function(path, extension)
 {
@@ -89,7 +91,7 @@ COM.CheckParm = function(parm)
 
 COM.CheckRegistered = function()
 {
-	COM.LoadFile('gfx/pop.lmp').then(function(h){
+	return COM.LoadFile('gfx/pop.lmp').then(function(h){
 		if (h == null)
 		{
 			Con.Print('Playing shareware version.\n');
@@ -233,6 +235,12 @@ COM.MaybePromise = function(maybePromiseObj, resolveFn, ctx) {
 
 COM.LoadFile = function(filename)
 {
+    var e = new Error('dummy');
+    var stack = e.stack.replace(/^[^\(]+?[\n$]/gm, '')
+        .replace(/^\s+at\s+/gm, '')
+        .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+        .split('\n');
+    COM.asyncTrace = stack;
 	filename = filename.toLowerCase();
 	var xhr = new XMLHttpRequest();
 	xhr.overrideMimeType('text/plain; charset=x-user-defined');
@@ -260,6 +268,7 @@ COM.LoadFile = function(filename)
 						}
 					});
 			} else {
+                
 				return new Promise(function(resolve, reject) {
 					xhr.open('GET', searchProps.filename + '/pak' + packNum + '.pak');
 					xhr.setRequestHeader('Range', 'bytes=' + file.filepos + '-' + (file.filepos + file.filelen - 1));
@@ -270,11 +279,14 @@ COM.LoadFile = function(filename)
 							Draw.EndDisc();
 							resolve(Q.strmem(xhr.responseText));
 						}
+                        COM.inAsync = false;
 					}
 					xhr.onerror = function(){
 						resolve();
+                        COM.inAsync = false;
 					}
 					xhr.send();
+                    COM.inAsync = true;
 				});
 			}
 		}
@@ -520,7 +532,9 @@ COM.InitFilesystem = function()
 		}
 	}
 
-	COM.gamedir = [COM.searchpaths[COM.searchpaths.length - 1]];
 	
-	return Promise.all(promises);
+	return Promise.all(promises)
+        .then(function(){
+	       COM.gamedir = [COM.searchpaths[COM.searchpaths.length - 1]];
+        });
 };

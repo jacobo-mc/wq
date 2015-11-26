@@ -36,7 +36,7 @@ Cmd.Execute = function()
 							return false;
 						}
 						line = '';
-						findNextCommand();
+						return findNextCommand();
 					});
 			}
 			line += String.fromCharCode(c);
