@@ -1,0 +1,55 @@
+<htlm>
+    <head>
+</head>
+    <body>
+    Hello world
+    <a href="#" id="doit">Try it?</a>
+    
+    <div id="messager"></div>
+    <p>
+    <input type="file" id="loadfile">
+        
+    <script src="https://code.jquery.com/jquery-2.1.4.js"></script>
+    <script type="text/javascript">
+        var output = $('#messager');
+        var button = $('#doit');
+        button.on('click', loadFile);
+        
+        if (window.File && window.FileReader && window.FileList && window.Blob) {
+            output.text('We\'re supported');
+        } else {
+            output.text('The File APIs are not fully supported in this browser.');
+        }
+        
+        function loadFile(){
+            
+        }
+        
+        function handleFileSelect(evt) {
+            var files = evt.target.files; // FileList object
+            if(files.length <= 0 ){
+                return;
+            }
+            var file = files[0];
+            var reader = new FileReader();
+
+            // Closure to capture the file information.
+            reader.onload = function(e) {
+                // Render thumbnail.
+                
+                var file = 3;
+            };
+        
+            // Read in the image file as a data URL.
+            reader.readAsDataURL(file);
+        }
+        
+        document.getElementById('loadfile').addEventListener('change', handleFileSelect, false);       
+        
+        
+        
+        
+        
+    </script>
+    </body>
+</html>

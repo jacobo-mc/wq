@@ -153,15 +153,29 @@ window.onload = function()
 				var putzAroundTime = Math.max((1000.0 / Sys.maxFps) - (Date.now() - timeIn), 0);
 				setTimeout(loop, putzAroundTime);
 			}
+            function continueLoopFn(timeIn) {
+                return function(){
+                    continueLoop();
+                };
+            }
 			function loop() {
 				var timeIn = Date.now();
-				var ret = Host.Frame();
+                var ret = null;
+                try{
+                    ret = Host.Frame();
+                } 
+                catch(e) {
+                    
+                }
                 
 				if(!Sys.looping)
 					return;
-					
-				COM.MaybePromise(ret, function(){ continueLoop(timeIn);});
-        }
+                if(ret && ret.then) {
+                    ret.then(continueLoopFn(timeIn), continueLoopFn(timeIn));
+                } else {
+                    continueLoop(timeIn);
+                }
+            }
 			
 			loop();
 		});
