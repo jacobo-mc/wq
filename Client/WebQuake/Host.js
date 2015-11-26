@@ -110,7 +110,7 @@ Host.DropClient = function(crash)
 	{
 		client = SV.svs.clients[i];
 		if (client.active !== true)
-			continue;
+		continue;
 		MSG.WriteByte(client.message, Protocol.svc.updatename);
 		MSG.WriteByte(client.message, num);
 		MSG.WriteByte(client.message, 0);
@@ -171,13 +171,18 @@ Host.WriteConfiguration = function()
 
 Host.ServerFrame = function()
 {
+	var promise = Promise.resolve();
 	PR.globals_float[PR.globalvars.frametime] = Host.frametime;
 	SV.server.datagram.cursize = 0;
 	SV.CheckForNewClients();
 	SV.RunClients();
-	if ((SV.server.paused !== true) && ((SV.svs.maxclients >= 2) || (Key.dest.value === Key.dest.game)))
-		SV.Physics();
-	SV.SendClientMessages();
+	if ((SV.server.paused !== true) && ((SV.svs.maxclients >= 2) || (Key.dest.value === Key.dest.game))) 
+		promise = SV.Physics();
+		
+	promise.then(function(){
+		SV.SendClientMessages();
+	});
+	return promise;
 };
 
 Host.time3 = 0.0;
@@ -207,54 +212,60 @@ Host._Frame = function()
 
 	var time1, time2, pass1, pass2, pass3, tot;
 
-	Cmd.Execute();
+	return COM.MaybePromise(Cmd.Execute(), function(){
+		CL.SendCmd();
+		var promise = Promise.resolve();
+		if (SV.server.active === true)
+			promise = Host.ServerFrame();
+	
+		return promise.then(function(){
+			return COM.MaybePromise(
+			(CL.cls.state === CL.active.connected ? CL.ReadFromServer() : null),
+			function(){
+				if (Host.speeds.value !== 0)
+					time1 = Sys.FloatTime();
+				SCR.UpdateScreen();
+				if (Host.speeds.value !== 0)
+					time2 = Sys.FloatTime();
+			
+				if (CL.cls.signon === 4)
+				{
+					S.Update(R.refdef.vieworg, R.vpn, R.vright, R.vup);
+					CL.DecayLights();
+				}
+				else
+					S.Update(Vec.origin, Vec.origin, Vec.origin, Vec.origin);
+				CDAudio.Update();
+			
+				if (Host.speeds.value !== 0)
+				{
+					pass1 = (time1 - Host.time3) * 1000.0;
+					Host.time3 = Sys.FloatTime();
+					pass2 = (time2 - time1) * 1000.0;
+					pass3 = (Host.time3 - time2) * 1000.0;
+					tot = Math.floor(pass1 + pass2 + pass3);
+					Con.Print((tot <= 99 ? (tot <= 9 ? '  ' : ' ') : '')
+						+ tot + ' tot '
+						+ (pass1 < 100.0 ? (pass1 < 10.0 ? '  ' : ' ') : '')
+						+ Math.floor(pass1) + ' server '
+						+ (pass2 < 100.0 ? (pass2 < 10.0 ? '  ' : ' ') : '')
+						+ Math.floor(pass2) + ' gfx '
+						+ (pass3 < 100.0 ? (pass3 < 10.0 ? '  ' : ' ') : '')
+						+ Math.floor(pass3) + ' snd\n');
+				}
+			
+				if (Host.startdemos === true)
+				{
+					CL.NextDemo();
+					Host.startdemos = false;
+				}
+			
+				++Host.framecount;
+			});
+		});
+	
+	});
 
-	CL.SendCmd();
-	if (SV.server.active === true)
-		Host.ServerFrame();
-
-	if (CL.cls.state === CL.active.connected)
-		CL.ReadFromServer();
-
-	if (Host.speeds.value !== 0)
-		time1 = Sys.FloatTime();
-	SCR.UpdateScreen();
-	if (Host.speeds.value !== 0)
-		time2 = Sys.FloatTime();
-
-	if (CL.cls.signon === 4)
-	{
-		S.Update(R.refdef.vieworg, R.vpn, R.vright, R.vup);
-		CL.DecayLights();
-	}
-	else
-		S.Update(Vec.origin, Vec.origin, Vec.origin, Vec.origin);
-	CDAudio.Update();
-
-	if (Host.speeds.value !== 0)
-	{
-		pass1 = (time1 - Host.time3) * 1000.0;
-		Host.time3 = Sys.FloatTime();
-		pass2 = (time2 - time1) * 1000.0;
-		pass3 = (Host.time3 - time2) * 1000.0;
-		tot = Math.floor(pass1 + pass2 + pass3);
-		Con.Print((tot <= 99 ? (tot <= 9 ? '  ' : ' ') : '')
-			+ tot + ' tot '
-			+ (pass1 < 100.0 ? (pass1 < 10.0 ? '  ' : ' ') : '')
-			+ Math.floor(pass1) + ' server '
-			+ (pass2 < 100.0 ? (pass2 < 10.0 ? '  ' : ' ') : '')
-			+ Math.floor(pass2) + ' gfx '
-			+ (pass3 < 100.0 ? (pass3 < 10.0 ? '  ' : ' ') : '')
-			+ Math.floor(pass3) + ' snd\n');
-	}
-
-	if (Host.startdemos === true)
-	{
-		CL.NextDemo();
-		Host.startdemos = false;
-	}
-
-	++Host.framecount;
 };
 
 Host.timetotal = 0.0;
@@ -263,24 +274,24 @@ Host.Frame = function()
 {
 	if (Host.serverprofile.value === 0)
 	{
-		Host._Frame();
-		return;
+		return Host._Frame();
 	}
 	var time1 = Sys.FloatTime();
-	Host._Frame();
-	Host.timetotal += Sys.FloatTime() - time1;
-	if (++Host.timecount <= 999)
-		return;
-	var m = (Host.timetotal * 1000.0 / Host.timecount) >> 0;
-	Host.timecount = 0;
-	Host.timetotal = 0.0;
-	var i, c = 0;
-	for (i = 0; i < SV.svs.maxclients; ++i)
-	{
-		if (SV.svs.clients[i].active === true)
-			++c;
-	}
-	Con.Print('serverprofile: ' + (c <= 9 ? ' ' : '') + c + ' clients ' + (m <= 9 ? ' ' : '') + m + ' msec\n');
+	return COM.MaybePromise(Host._Frame(), function(){
+		Host.timetotal += Sys.FloatTime() - time1;
+		if (++Host.timecount <= 999)
+			return;
+		var m = (Host.timetotal * 1000.0 / Host.timecount) >> 0;
+		Host.timecount = 0;
+		Host.timetotal = 0.0;
+		var i, c = 0;
+		for (i = 0; i < SV.svs.maxclients; ++i)
+		{
+			if (SV.svs.clients[i].active === true)
+				++c;
+		}
+		Con.Print('serverprofile: ' + (c <= 9 ? ' ' : '') + c + ' clients ' + (m <= 9 ? ' ' : '') + m + ' msec\n');
+	});
 };
 
 Host.Init = function()
@@ -289,29 +300,32 @@ Host.Init = function()
 	Cmd.Init();
 	V.Init();
 	Chase.Init();
-	COM.Init();
-	Host.InitLocal();
-	W.LoadWadFile('gfx.wad');
-	Key.Init();
-	Con.Init();
-	PR.Init();
-	Mod.Init();
-	NET.Init();
-	SV.Init();
-	Con.Print(Def.timedate);
-	VID.Init();
-	Draw.Init();
-	SCR.Init();
-	R.Init();
-	S.Init();
-	M.Init();
-	CDAudio.Init();
-	Sbar.Init();
-	CL.Init();
-	IN.Init();
-	Cmd.text = 'exec quake.rc\n' + Cmd.text;
-	Host.initialized = true;
-	Sys.Print('========Quake Initialized=========\n');
+	return COM.Init()
+		.then(Host.InitLocal)
+		.then(function() {return W.LoadWadFile('gfx.wad');})
+		.then(Key.Init)
+		.then(Con.Init)
+		.then(PR.Init)
+		.then(Mod.Init)
+		.then(NET.Init)
+		.then(SV.Init)
+		.then(function() { return Con.Print(Def.timedate); })
+		.then(VID.Init)
+		.then(Draw.Init)
+		.then(SCR.Init)
+		.then(R.Init)
+		.then(S.Init)
+		.then(M.Init)
+		.then(CDAudio.Init)
+		.then(Sbar.Init)
+		.then(CL.Init)
+		.then(IN.Init)
+		.then(function(){
+			Cmd.text = 'exec quake.rc\n' + Cmd.text;
+			Host.initialized = true;
+			Sys.Print('========Quake Initialized=========\n');
+		});
+	
 };
 
 Host.Shutdown = function()
@@ -516,14 +530,15 @@ Host.Map_f = function()
 	Key.dest.value = Key.dest.game;
 	SCR.BeginLoadingPlaque();
 	SV.svs.serverflags = 0;
-	SV.SpawnServer(Cmd.argv[1]);
-	if (SV.server.active !== true)
-		return;
-	CL.cls.spawnparms = '';
-	var i;
-	for (i = 2; i < Cmd.argv.length; ++i)
-		CL.cls.spawnparms += Cmd.argv[i] + ' ';
-	Cmd.ExecuteString('connect local');
+	return SV.SpawnServer(Cmd.argv[1]).then(function(){
+		if (SV.server.active !== true)
+			return;
+		CL.cls.spawnparms = '';
+		var i;
+		for (i = 2; i < Cmd.argv.length; ++i)
+			CL.cls.spawnparms += Cmd.argv[i] + ' ';
+		return Cmd.ExecuteString('connect local');
+	})
 };
 
 Host.Changelevel_f = function()

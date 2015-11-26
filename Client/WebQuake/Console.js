@@ -116,18 +116,20 @@ Con.DPrint = function(msg)
 
 Con.DrawInput = function()
 {
+	var charsize = SCR.charsize.value;
 	if ((Key.dest.value !== Key.dest.console) && (Con.forcedup !== true))
 		return;
 	var text = ']' + Key.edit_line + String.fromCharCode(10 + ((Host.realtime * 4.0) & 1));
-	var width = (VID.width >> 3) - 2;
+	var width = (VID.width / charsize) - 2;
 	if (text.length >= width)
 		text = text.substring(1 + text.length - width);
-	Draw.String(8, Con.vislines - 16, text);
+	Draw.String(8, Con.vislines - charsize - 8, text, charsize);
 };
 
 Con.DrawNotify = function()
 {
-	var width = (VID.width >> 3) - 2;
+	var charsize = SCR.charsize.value;
+	var width = (VID.width / charsize) - 2;
 	var i = Con.text.length - 4, v = 0;
 	if (i < 0)
 		i = 0;
@@ -135,30 +137,32 @@ Con.DrawNotify = function()
 	{
 		if ((Host.realtime - Con.text[i].time) > Con.notifytime.value)
 			continue;
-		Draw.String(8, v, Con.text[i].text.substring(0, width));
-		v += 8;
+		Draw.String(8, v, Con.text[i].text.substring(0, width), charsize);
+		v += charsize;
 	}
 	if (Key.dest.value === Key.dest.message)
-		Draw.String(8, v, 'say: ' + Key.chat_buffer + String.fromCharCode(10 + ((Host.realtime * 4.0) & 1)));
+		Draw.String(8, v, 'say: ' + Key.chat_buffer + String.fromCharCode(10 + ((Host.realtime * 4.0) & 1)), charsize);
 };
 
 Con.DrawConsole = function(lines)
 {
 	if (lines <= 0)
 		return;
+	var charsize = SCR.charsize.value;
 	lines = Math.floor(lines * VID.height * 0.005);
 	Draw.ConsoleBackground(lines);
 	Con.vislines = lines;
-	var width = (VID.width >> 3) - 2;
+	var width = (VID.width / charsize) - 2;
 	var rows;
-	var y = lines - 16;
+	var y = lines - charsize - 8;
 	var i;
+	
 	for (i = Con.text.length - 1 - Con.backscroll; i >= 0;)
 	{
 		if (Con.text[i].text.length === 0)
-			y -= 8;
+			y -= charsize;
 		else
-			y -= Math.ceil(Con.text[i].text.length / width) << 3;
+			y -= Math.ceil(Con.text[i].text.length / width) * charsize;
 		--i;
 		if (y <= 0)
 			break;
@@ -170,13 +174,13 @@ Con.DrawConsole = function(lines)
 		rows = Math.ceil(text.length / width);
 		if (rows === 0)
 		{
-			y += 8;
+			y += charsize;
 			continue;
 		}
 		for (j = 0; j < rows; ++j)
 		{
-			Draw.String(8, y, text.substr(j * width, width));
-			y += 8;
+			Draw.String(8, y, text.substr(j * width, width), charsize);
+			y += charsize;
 		}
 	}
 	Con.DrawInput();

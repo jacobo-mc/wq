@@ -696,102 +696,117 @@ SV.SpawnServer = function(server)
 	Con.DPrint('Clearing memory\n');
 	Mod.ClearAll();
 
-	PR.LoadProgs();
-
-	SV.server.edicts = [];
-	var ed;
-	for (i = 0; i < Def.max_edicts; ++i)
-	{
-		ed = {
-			num: i,
-			free: false,
-			area: {},
-			leafnums: [],
-			baseline: {
-				origin: [0.0, 0.0, 0.0],
-				angles: [0.0, 0.0, 0.0],
-				modelindex: 0,
-				frame: 0,
-				colormap: 0,
-				skin: 0,
-				effects: 0
-			},
-			freetime: 0.0,
-			v: new ArrayBuffer(PR.entityfields << 2)
-		};
-		ed.area.ent = ed;
-		ed.v_float = new Float32Array(ed.v);
-		ed.v_int = new Int32Array(ed.v);
-		SV.server.edicts[i] = ed;
-	}
-
-	SV.server.datagram.cursize = 0;
-	SV.server.reliable_datagram.cursize = 0;
-	SV.server.signon.cursize = 0;
-	SV.server.num_edicts = SV.svs.maxclients + 1;
-	for (i = 0; i < SV.svs.maxclients; ++i)
-		SV.svs.clients[i].edict = SV.server.edicts[i + 1];
-	SV.server.loading = true;
-	SV.server.paused = false;
-	SV.server.loadgame = false;
-	SV.server.time = 1.0;
-	SV.server.lastcheck = 0;
-	SV.server.lastchecktime = 0.0;
-	SV.server.modelname = 'maps/' + server + '.bsp';
-	SV.server.worldmodel = Mod.ForName(SV.server.modelname);
-	if (SV.server.worldmodel == null)
-	{
-		Con.Print('Couldn\'t spawn server ' + SV.server.modelname + '\n');
-		SV.server.active = false;
-		return;
-	}
-	SV.server.models = [];
-	SV.server.models[1] = SV.server.worldmodel;
-
-	SV.areanodes = [];
-	SV.CreateAreaNode(0, SV.server.worldmodel.mins, SV.server.worldmodel.maxs);
-
-	SV.server.sound_precache = [''];
-	SV.server.model_precache = ['', SV.server.modelname];
-	for (i = 1; i <= SV.server.worldmodel.submodels.length; ++i)
-	{
-		SV.server.model_precache[i + 1] = '*' + i;
-		SV.server.models[i + 1] = Mod.ForName('*' + i);
-	}
-
-	SV.server.lightstyles = [];
-	for (i = 0; i <= 63; ++i)
-		SV.server.lightstyles[i] = '';
-
-	var ent = SV.server.edicts[0];
-	ent.v_int[PR.entvars.model] = PR.NewString(SV.server.modelname, 64);
-	ent.v_float[PR.entvars.modelindex] = 1.0;
-	ent.v_float[PR.entvars.solid] = SV.solid.bsp;
-	ent.v_float[PR.entvars.movetype] = SV.movetype.push;
-
-	if (Host.coop.value !== 0)
-		PR.globals_float[PR.globalvars.coop] = Host.coop.value;
-	else
-		PR.globals_float[PR.globalvars.deathmatch] = Host.deathmatch.value;
-
-	PR.globals_int[PR.globalvars.mapname] = PR.NewString(server, 64);
-	PR.globals_float[PR.globalvars.serverflags] = SV.svs.serverflags;
-	ED.LoadFromFile(SV.server.worldmodel.entities);
-	SV.server.active = true;
-	SV.server.loading = false;
-	Host.frametime = 0.1;
-	SV.Physics();
-	SV.Physics();
-	SV.CreateBaseline();
-	for (i = 0; i < SV.svs.maxclients; ++i)
-	{
-		Host.client = SV.svs.clients[i];
-		if (Host.client.active !== true)
-			continue;
-		Host.client.edict.v_int[PR.entvars.netname] = PR.netnames + (i << 5);
-		SV.SendServerinfo(Host.client);
-	}
-	Con.DPrint('Server spawned.\n');
+	return PR.LoadProgs().then(function(){
+		SV.server.edicts = [];
+		var ed;
+		for (i = 0; i < Def.max_edicts; ++i)
+		{
+			ed = {
+				num: i,
+				free: false,
+				area: {},
+				leafnums: [],
+				baseline: {
+					origin: [0.0, 0.0, 0.0],
+					angles: [0.0, 0.0, 0.0],
+					modelindex: 0,
+					frame: 0,
+					colormap: 0,
+					skin: 0,
+					effects: 0
+				},
+				freetime: 0.0,
+				v: new ArrayBuffer(PR.entityfields << 2)
+			};
+			ed.area.ent = ed;
+			ed.v_float = new Float32Array(ed.v);
+			ed.v_int = new Int32Array(ed.v);
+			SV.server.edicts[i] = ed;
+		}
+	
+		SV.server.datagram.cursize = 0;
+		SV.server.reliable_datagram.cursize = 0;
+		SV.server.signon.cursize = 0;
+		SV.server.num_edicts = SV.svs.maxclients + 1;
+		for (i = 0; i < SV.svs.maxclients; ++i)
+			SV.svs.clients[i].edict = SV.server.edicts[i + 1];
+		SV.server.loading = true;
+		SV.server.paused = false;
+		SV.server.loadgame = false;
+		SV.server.time = 1.0;
+		SV.server.lastcheck = 0;
+		SV.server.lastchecktime = 0.0;
+		SV.server.modelname = 'maps/' + server + '.bsp';
+		return Mod.ForName(SV.server.modelname).then(function(map){
+			SV.server.worldmodel = map;
+			if(!map) {
+				Con.Print('Couldn\'t spawn server ' + SV.server.modelname + '\n');
+				SV.server.active = false;
+				return;
+			}
+			
+			SV.server.models = [];
+			SV.server.models[1] = SV.server.worldmodel;
+		
+			SV.areanodes = [];
+			SV.CreateAreaNode(0, SV.server.worldmodel.mins, SV.server.worldmodel.maxs);
+		
+			SV.server.sound_precache = [''];
+			SV.server.model_precache = ['', SV.server.modelname];
+			i = 1;
+			function loadModel(){
+				if(i <= SV.server.worldmodel.submodels.length) {
+					SV.server.model_precache[i + 1] = '*' + i;
+					return Mod.ForName('*' + i).then(function(model) {
+						SV.server.models[i + 1] = model;
+						i++;
+						return loadModel();
+					})
+				}
+			}
+		
+			return loadModel().then(function(){
+				SV.server.lightstyles = [];
+				for (i = 0; i <= 63; ++i)
+					SV.server.lightstyles[i] = '';
+			
+				var ent = SV.server.edicts[0];
+				ent.v_int[PR.entvars.model] = PR.NewString(SV.server.modelname, 64);
+				ent.v_float[PR.entvars.modelindex] = 1.0;
+				ent.v_float[PR.entvars.solid] = SV.solid.bsp;
+				ent.v_float[PR.entvars.movetype] = SV.movetype.push;
+			
+				if (Host.coop.value !== 0)
+					PR.globals_float[PR.globalvars.coop] = Host.coop.value;
+				else
+					PR.globals_float[PR.globalvars.deathmatch] = Host.deathmatch.value;
+			
+				PR.globals_int[PR.globalvars.mapname] = PR.NewString(server, 64);
+				PR.globals_float[PR.globalvars.serverflags] = SV.svs.serverflags;
+				
+				return ED.LoadFromFile(SV.server.worldmodel.entities).then(function(){
+					SV.server.active = true;
+					SV.server.loading = false;
+					Host.frametime = 0.1;
+					return SV.Physics()
+						.then(SV.Physics)
+						.then(function(){
+							SV.CreateBaseline();
+							for (i = 0; i < SV.svs.maxclients; ++i)
+							{
+								Host.client = SV.svs.clients[i];
+								if (Host.client.active !== true)
+									continue;
+								Host.client.edict.v_int[PR.entvars.netname] = PR.netnames + (i << 5);
+								SV.SendServerinfo(Host.client);
+							}
+							Con.DPrint('Server spawned.\n');
+						});
+					
+				})
+			})
+		})
+	});
 };
 
 SV.GetClientName = function(client)
@@ -1088,15 +1103,17 @@ SV.RunThink = function(ent)
 {
 	var thinktime = ent.v_float[PR.entvars.nextthink];
 	if ((thinktime <= 0.0) || (thinktime > (SV.server.time + Host.frametime)))
-		return true;
+		return Promise.resolve(true);
 	if (thinktime < SV.server.time)
 		thinktime = SV.server.time;
 	ent.v_float[PR.entvars.nextthink] = 0.0;
 	PR.globals_float[PR.globalvars.time] = thinktime;
 	PR.globals_int[PR.globalvars.self] = ent.num;
 	PR.globals_int[PR.globalvars.other] = 0;
-	PR.ExecuteProgram(ent.v_int[PR.entvars.think]);
-	return (ent.free !== true);
+	
+	return PR.ExecuteProgram(ent.v_int[PR.entvars.think]).then(function(){
+		return (ent.free !== true);
+	});
 };
 
 SV.Impact = function(e1, e2)
@@ -1394,12 +1411,12 @@ SV.Physics_Pusher = function(ent)
 	if (movetime !== 0.0)
 		SV.PushMove(ent, movetime);
 	if ((thinktime <= oldltime) || (thinktime > ent.v_float[PR.entvars.ltime]))
-		return;
+		return Promise.resolve();
 	ent.v_float[PR.entvars.nextthink] = 0.0;
 	PR.globals_float[PR.globalvars.time] = SV.server.time;
 	PR.globals_int[PR.globalvars.self] = ent.num;
 	PR.globals_int[PR.globalvars.other] = 0;
-	PR.ExecuteProgram(ent.v_int[PR.entvars.think]);
+	return PR.ExecuteProgram(ent.v_int[PR.entvars.think]);
 };
 
 SV.CheckStuck = function(ent)
@@ -1568,44 +1585,54 @@ SV.WalkMove = function(ent)
 SV.Physics_Client = function(ent)
 {
 	if (SV.svs.clients[ent.num - 1].active !== true)
-		return;
+		return Promise.resolve();
 	PR.globals_float[PR.globalvars.time] = SV.server.time;
 	PR.globals_int[PR.globalvars.self] = ent.num;
-	PR.ExecuteProgram(PR.globals_int[PR.globalvars.PlayerPreThink]);
-	SV.CheckVelocity(ent);
-	var movetype = ent.v_float[PR.entvars.movetype] >> 0;
-	if ((movetype === SV.movetype.toss) || (movetype === SV.movetype.bounce))
-		SV.Physics_Toss(ent);
-	else
-	{
-		if (SV.RunThink(ent) !== true)
-			return;
-		switch (movetype)
-		{
-		case SV.movetype.none:
-			break;
-		case SV.movetype.walk:
-			if ((SV.CheckWater(ent) !== true) && ((ent.v_float[PR.entvars.flags] & SV.fl.waterjump) === 0))
-				SV.AddGravity(ent);
-			SV.CheckStuck(ent);
-			SV.WalkMove(ent);
-			break;
-		case SV.movetype.fly:
-			SV.FlyMove(ent, Host.frametime);
-			break;
-		case SV.movetype.noclip:
-			ent.v_float[PR.entvars.origin] += Host.frametime * ent.v_float[PR.entvars.velocity];
-			ent.v_float[PR.entvars.origin1] += Host.frametime * ent.v_float[PR.entvars.velocity1];
-			ent.v_float[PR.entvars.origin2] += Host.frametime * ent.v_float[PR.entvars.velocity2];
-			break;
-		default:
-			Sys.Error('SV.Physics_Client: bad movetype ' + movetype);
-		}
+	var movetype;
+	
+	function doThink() {
+		return SV.RunThink(ent).then(function(ret) {
+			if(!ret) {
+				return Promise.resolve();
+			}
+			switch (movetype)
+			{
+			case SV.movetype.none:
+				break;
+			case SV.movetype.walk:
+				if ((SV.CheckWater(ent) !== true) && ((ent.v_float[PR.entvars.flags] & SV.fl.waterjump) === 0))
+					SV.AddGravity(ent);
+				SV.CheckStuck(ent);
+				SV.WalkMove(ent);
+				break;
+			case SV.movetype.fly:
+				SV.FlyMove(ent, Host.frametime);
+				break;
+			case SV.movetype.noclip:
+				ent.v_float[PR.entvars.origin] += Host.frametime * ent.v_float[PR.entvars.velocity];
+				ent.v_float[PR.entvars.origin1] += Host.frametime * ent.v_float[PR.entvars.velocity1];
+				ent.v_float[PR.entvars.origin2] += Host.frametime * ent.v_float[PR.entvars.velocity2];
+				break;
+			default:
+				Sys.Error('SV.Physics_Client: bad movetype ' + movetype);
+			}
+			
+			SV.LinkEdict(ent, true);
+			PR.globals_float[PR.globalvars.time] = SV.server.time;
+			PR.globals_int[PR.globalvars.self] = ent.num;
+			
+			return PR.ExecuteProgram(PR.globals_int[PR.globalvars.PlayerPostThink]);
+		});
 	}
-	SV.LinkEdict(ent, true);
-	PR.globals_float[PR.globalvars.time] = SV.server.time;
-	PR.globals_int[PR.globalvars.self] = ent.num;
-	PR.ExecuteProgram(PR.globals_int[PR.globalvars.PlayerPostThink]);
+	
+	return PR.ExecuteProgram(PR.globals_int[PR.globalvars.PlayerPreThink])
+		.then(function(){
+			SV.CheckVelocity(ent);
+			movetype = ent.v_float[PR.entvars.movetype] >> 0;
+			if ((movetype === SV.movetype.toss) || (movetype === SV.movetype.bounce))
+				return SV.Physics_Toss(ent).then(doThink);
+			return doThink();
+		});
 };
 
 SV.Physics_Noclip = function(ent)
@@ -1623,66 +1650,87 @@ SV.Physics_Noclip = function(ent)
 
 SV.CheckWaterTransition = function(ent)
 {
-	var cont = SV.PointContents(ED.Vector(ent, PR.entvars.origin));
-	if (ent.v_float[PR.entvars.watertype] === 0.0)
-	{
-		ent.v_float[PR.entvars.watertype] = cont;
-		ent.v_float[PR.entvars.waterlevel] = 1.0;
-		return;
-	}
-	if (cont <= Mod.contents.water)
-	{
-		if (ent.v_float[PR.entvars.watertype] === Mod.contents.empty)
-			SV.StartSound(ent, 0, 'misc/h2ohit1.wav', 255, 1.0);
-		ent.v_float[PR.entvars.watertype] = cont;
-		ent.v_float[PR.entvars.waterlevel] = 1.0;
-		return;
-	}
-	if (ent.v_float[PR.entvars.watertype] !== Mod.contents.empty)
-		SV.StartSound(ent, 0, 'misc/h2ohit1.wav', 255, 1.0);
-	ent.v_float[PR.entvars.watertype] = Mod.contents.empty;
-	ent.v_float[PR.entvars.waterlevel] = cont;
+	return new Promise(function(resolve,reject) {
+		
+		var cont = SV.PointContents(ED.Vector(ent, PR.entvars.origin));
+		if (ent.v_float[PR.entvars.watertype] === 0.0)
+		{
+			ent.v_float[PR.entvars.watertype] = cont;
+			ent.v_float[PR.entvars.waterlevel] = 1.0;
+			return resolve();
+		}
+		if (cont <= Mod.contents.water)
+		{
+			if (ent.v_float[PR.entvars.watertype] === Mod.contents.empty){
+				SV.StartSound(ent, 0, 'misc/h2ohit1.wav', 255, 1.0).then(function(){
+					ent.v_float[PR.entvars.watertype] = cont;
+					ent.v_float[PR.entvars.waterlevel] = 1.0;
+					return resolve();
+				});
+			} else {
+				ent.v_float[PR.entvars.watertype] = cont;
+				ent.v_float[PR.entvars.waterlevel] = 1.0;
+				return resolve();
+			}
+		}
+		if (ent.v_float[PR.entvars.watertype] !== Mod.contents.empty) {
+			SV.StartSound(ent, 0, 'misc/h2ohit1.wav', 255, 1.0).then(function(){
+					ent.v_float[PR.entvars.watertype] = Mod.contents.empty;
+					ent.v_float[PR.entvars.waterlevel] = cont;
+					return resolve();
+				});
+		} else {
+			ent.v_float[PR.entvars.watertype] = Mod.contents.empty;
+			ent.v_float[PR.entvars.waterlevel] = cont;
+			return resolve();
+		}
+	});
 };
 
 SV.Physics_Toss = function(ent)
 {
-	if (SV.RunThink(ent) !== true)
-		return;
-	if ((ent.v_float[PR.entvars.flags] & SV.fl.onground) !== 0)
-		return;
-	SV.CheckVelocity(ent);
-	var movetype = ent.v_float[PR.entvars.movetype];
-	if ((movetype !== SV.movetype.fly) && (movetype !== SV.movetype.flymissile))
-		SV.AddGravity(ent);
-	ent.v_float[PR.entvars.angles] += Host.frametime * ent.v_float[PR.entvars.avelocity];
-	ent.v_float[PR.entvars.angles1] += Host.frametime * ent.v_float[PR.entvars.avelocity1];
-	ent.v_float[PR.entvars.angles2] += Host.frametime * ent.v_float[PR.entvars.avelocity2];
-	var trace = SV.PushEntity(ent,
-		[
-			ent.v_float[PR.entvars.velocity] * Host.frametime,
-			ent.v_float[PR.entvars.velocity1] * Host.frametime,
-			ent.v_float[PR.entvars.velocity2] * Host.frametime
-		]);
-	if ((trace.fraction === 1.0) || (ent.free === true))
-		return;
-	var velocity = [];
-	SV.ClipVelocity(ED.Vector(ent, PR.entvars.velocity), trace.plane.normal, velocity, (movetype === SV.movetype.bounce) ? 1.5 : 1.0);
-	ED.SetVector(ent, PR.entvars.velocity, velocity);
-	if (trace.plane.normal[2] > 0.7)
-	{
-		if ((ent.v_float[PR.entvars.velocity2] < 60.0) || (movetype !== SV.movetype.bounce))
-		{
-			ent.v_float[PR.entvars.flags] |= SV.fl.onground;
-			ent.v_int[PR.entvars.groundentity] = trace.ent.num;
-			ent.v_float[PR.entvars.velocity] = ent.v_float[PR.entvars.velocity1] = ent.v_float[PR.entvars.velocity2] = 0.0;
-			ent.v_float[PR.entvars.avelocity] = ent.v_float[PR.entvars.avelocity1] = ent.v_float[PR.entvars.avelocity2] = 0.0;
+	return SV.RunThink(ent).then(function(ret) {
+		if(ret !== true) {
+			return;
 		}
-	}
-	SV.CheckWaterTransition(ent);
+		if ((ent.v_float[PR.entvars.flags] & SV.fl.onground) !== 0){
+			return;
+		}
+		SV.CheckVelocity(ent);
+		var movetype = ent.v_float[PR.entvars.movetype];
+		if ((movetype !== SV.movetype.fly) && (movetype !== SV.movetype.flymissile))
+			SV.AddGravity(ent);
+		ent.v_float[PR.entvars.angles] += Host.frametime * ent.v_float[PR.entvars.avelocity];
+		ent.v_float[PR.entvars.angles1] += Host.frametime * ent.v_float[PR.entvars.avelocity1];
+		ent.v_float[PR.entvars.angles2] += Host.frametime * ent.v_float[PR.entvars.avelocity2];
+		var trace = SV.PushEntity(ent,
+			[
+				ent.v_float[PR.entvars.velocity] * Host.frametime,
+				ent.v_float[PR.entvars.velocity1] * Host.frametime,
+				ent.v_float[PR.entvars.velocity2] * Host.frametime
+			]);
+		if ((trace.fraction === 1.0) || (ent.free === true))
+			return;
+		var velocity = [];
+		SV.ClipVelocity(ED.Vector(ent, PR.entvars.velocity), trace.plane.normal, velocity, (movetype === SV.movetype.bounce) ? 1.5 : 1.0);
+		ED.SetVector(ent, PR.entvars.velocity, velocity);
+		if (trace.plane.normal[2] > 0.7)
+		{
+			if ((ent.v_float[PR.entvars.velocity2] < 60.0) || (movetype !== SV.movetype.bounce))
+			{
+				ent.v_float[PR.entvars.flags] |= SV.fl.onground;
+				ent.v_int[PR.entvars.groundentity] = trace.ent.num;
+				ent.v_float[PR.entvars.velocity] = ent.v_float[PR.entvars.velocity1] = ent.v_float[PR.entvars.velocity2] = 0.0;
+				ent.v_float[PR.entvars.avelocity] = ent.v_float[PR.entvars.avelocity1] = ent.v_float[PR.entvars.avelocity2] = 0.0;
+			}
+		}
+		return SV.CheckWaterTransition(ent);
+	});
 };
 
 SV.Physics_Step = function(ent)
 {
+	var maybePromise = Promise.resolve();
 	if ((ent.v_float[PR.entvars.flags] & (SV.fl.onground + SV.fl.fly + SV.fl.swim)) === 0)
 	{
 		var hitsound = (ent.v_float[PR.entvars.velocity2] < (SV.gravity.value * -0.1));
@@ -1691,10 +1739,11 @@ SV.Physics_Step = function(ent)
 		SV.FlyMove(ent, Host.frametime);
 		SV.LinkEdict(ent, true);
 		if (((ent.v_float[PR.entvars.flags] & SV.fl.onground) !== 0) && (hitsound === true))
-			SV.StartSound(ent, 0, 'demon/dland2.wav', 255, 1.0);
+			maybePromise = SV.StartSound(ent, 0, 'demon/dland2.wav', 255, 1.0);
 	}
-	SV.RunThink(ent);
-	SV.CheckWaterTransition(ent);
+	return maybePromise
+		.then(SV.RunThink(ent))
+		.then(SV.CheckWaterTransition(ent));
 };
 
 SV.Physics = function()
@@ -1703,45 +1752,60 @@ SV.Physics = function()
 	PR.globals_int[PR.globalvars.other] = 0;
 	PR.globals_float[PR.globalvars.time] = SV.server.time;
 	PR.ExecuteProgram(PR.globals_int[PR.globalvars.StartFrame]);
-	var i, ent;
-	for (i = 0; i < SV.server.num_edicts; ++i)
-	{
+	var i = 0, ent;
+	
+	function processOne() {
 		ent = SV.server.edicts[i];
 		if (ent.free === true)
-			continue;
+			return true;
 		if (PR.globals_float[PR.globalvars.force_retouch] !== 0.0)
 			SV.LinkEdict(ent, true);
 		if ((i > 0) && (i <= SV.svs.maxclients))
 		{
-			SV.Physics_Client(ent);
-			continue;
+			return SV.Physics_Client(ent);
 		}
 		switch (ent.v_float[PR.entvars.movetype])
 		{
 		case SV.movetype.push:
-			SV.Physics_Pusher(ent);
-			continue;
+			return SV.Physics_Pusher(ent);
 		case SV.movetype.none:
-			SV.RunThink(ent);
-			continue;
+			return SV.RunThink(ent);
 		case SV.movetype.noclip:
-			SV.RunThink(ent);
-			continue;
+			return SV.RunThink(ent);
 		case SV.movetype.step:
-			SV.Physics_Step(ent);
-			continue;
+			return SV.Physics_Step(ent);
 		case SV.movetype.toss:
 		case SV.movetype.bounce:
 		case SV.movetype.fly:
 		case SV.movetype.flymissile:
-			SV.Physics_Toss(ent);
-			continue;
+			return SV.Physics_Toss(ent);
 		}
 		Sys.Error('SV.Physics: bad movetype ' + (ent.v_float[PR.entvars.movetype] >> 0));
 	}
-	if (PR.globals_float[PR.globalvars.force_retouch] !== 0.0)
-		--PR.globals_float[PR.globalvars.force_retouch];
-	SV.server.time += Host.frametime;
+
+	return new Promise(function(resolve,reject) {
+		function processAll() {
+			if(i++ >= SV.server.num_edicts){
+				return resolve();
+			}
+				
+			var ret = processOne();
+			
+			if(ret && ret.then){
+				ret.then(processAll)
+			} else if(ret === true){
+				processAll();
+			} else {
+				resolve();
+			}
+		}
+		processAll();
+		
+	}).then(function(){
+		if (PR.globals_float[PR.globalvars.force_retouch] !== 0.0)
+			--PR.globals_float[PR.globalvars.force_retouch];
+		SV.server.time += Host.frametime;
+	});
 };
 
 // user

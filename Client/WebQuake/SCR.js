@@ -1,7 +1,5 @@
 SCR = {};
 
-SCR.con_current = 0;
-
 SCR.centerstring = [];
 SCR.centertime_off = 0.0;
 
@@ -27,6 +25,7 @@ SCR.CenterPrint = function(str)
 
 SCR.DrawCenterString = function()
 {
+	var charsize = SCR.charsize.value;
 	SCR.centertime_off -= Host.frametime;
 	if (((SCR.centertime_off <= 0.0) && (CL.state.intermission === 0)) || (Key.dest.value !== Key.dest.game))
 		return;
@@ -45,23 +44,23 @@ SCR.DrawCenterString = function()
 		for (i = 0; i < SCR.centerstring.length; ++i)
 		{
 			str = SCR.centerstring[i];
-			x = (VID.width - (str.length << 3)) >> 1;
+			x = (VID.width - (str.length * charsize)) >> 1;
 			for (j = 0; j < str.length; ++j)
 			{
 				Draw.Character(x, y, str.charCodeAt(j));
 				if ((remaining--) === 0)
 					return;
-				x += 8;
+				x += charsize;
 			}
-			y += 8;
+			y += charsize;
 		}
 		return;
 	}
 
 	for (i = 0; i < SCR.centerstring.length; ++i)
 	{
-		Draw.String((VID.width - (SCR.centerstring[i].length << 3)) >> 1, y, SCR.centerstring[i]);
-		y += 8;
+		Draw.String((VID.width - (SCR.centerstring[i].length * charsize)) >> 1, y, SCR.centerstring[i], charsize);
+		y += charsize;
 	}
 };
 
@@ -167,6 +166,7 @@ SCR.SizeDown_f = function()
 
 SCR.Init = function()
 {
+	SCR.charsize = Cvar.RegisterVariable('con_textsize', '16'); // con_textsize to 
 	SCR.fov = Cvar.RegisterVariable('fov', '90');
 	SCR.viewsize = Cvar.RegisterVariable('viewsize', '100', true);
 	SCR.conspeed = Cvar.RegisterVariable('scr_conspeed', '300');
@@ -179,7 +179,10 @@ SCR.Init = function()
 	Cmd.AddCommand('sizedown', SCR.SizeDown_f);
 	SCR.net = Draw.PicFromWad('NET');
 	SCR.turtle = Draw.PicFromWad('TURTLE');
-	SCR.pause = Draw.CachePic('pause');
+	return Draw.CachePic('pause')
+		.then(function(pause){
+			SCR.pause = pause;
+		});
 };
 
 SCR.count = 0;

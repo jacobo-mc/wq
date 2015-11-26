@@ -117,27 +117,36 @@ CDAudio.Init = function()
 	Cmd.AddCommand('cd', CDAudio.CD_f);
 	if (COM.CheckParm('-nocdaudio') != null)
 		return;
-	var i, j, track;
-	var xhr = new XMLHttpRequest();
+	var i, j, track, promises = [];
 	for (i = 1; i <= 99; ++i)
 	{
 		track = '/media/quake' + (i <= 9 ? '0' : '') + i + '.ogg';
 		for (j = COM.searchpaths.length - 1; j >= 0; --j)
 		{
-			xhr.open('HEAD', COM.searchpaths[j].filename + track, false);
-			xhr.send();
-			if ((xhr.status >= 200) && (xhr.status <= 299))
-			{
-				CDAudio.known[i - 1] = COM.searchpaths[j].filename + track;
-				break;
-			}
+			promises.push(new Promise(function(resolve,reject){
+				var xhr = new XMLHttpRequest();
+				xhr.open('HEAD', COM.searchpaths[j].filename + track);
+				xhr.onload = function(e) {
+					var response = e.target;
+					if ((response.status >= 200) && (response.status <= 299))
+					{
+						CDAudio.known[i - 1] = COM.searchpaths[j].filename + track;
+					}
+					resolve();
+				}
+				xhr.onerror = function() {resolve();}
+				xhr.send();
+			}));
 		}
 		if (j < 0)
 			break;
 	}
-	if (CDAudio.known.length === 0)
-		return;
-	CDAudio.initialized = CDAudio.enabled = true;
-	CDAudio.Update();
-	Con.Print('CD Audio Initialized\n');
+	return Promise.all(promises)
+		.then(function(){
+			if (CDAudio.known.length === 0)
+				return;
+			CDAudio.initialized = CDAudio.enabled = true;
+			CDAudio.Update();
+			Con.Print('CD Audio Initialized\n');
+		});
 };

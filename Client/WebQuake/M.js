@@ -943,6 +943,13 @@ M.Quit_Key = function(k)
 // Menu Subsystem
 M.Init = function()
 {
+	var promises = [];
+	function addToPromise(loadFn, ctx, assetName, fn) {
+		promises.push(loadFn.call(ctx, assetName).then(fn))
+	}
+	function assign(prop) { return function(asset){ M[prop] = asset; };	}
+	function push(prop) { return function(asset){ M[prop].push(asset); };	}
+	
 	Cmd.AddCommand('togglemenu', M.ToggleMenu_f);
 	Cmd.AddCommand('menu_main', M.Menu_Main_f);
 	Cmd.AddCommand('menu_singleplayer', M.Menu_SinglePlayer_f);
@@ -955,78 +962,54 @@ M.Init = function()
 	Cmd.AddCommand('help', M.Menu_Help_f);
 	Cmd.AddCommand('menu_quit', M.Menu_Quit_f);
 
-	M.sfx_menu1 = S.PrecacheSound('misc/menu1.wav');
-	M.sfx_menu2 = S.PrecacheSound('misc/menu2.wav');
-	M.sfx_menu3 = S.PrecacheSound('misc/menu3.wav');
+	addToPromise(S.PrecacheSound, S, 'misc/menu1.wav', assign('sfx_menu1'));
+	addToPromise(S.PrecacheSound, S, 'misc/menu2.wav', assign('sfx_menu2'));
+	addToPromise(S.PrecacheSound, S, 'misc/menu3.wav', assign('sfx_menu3'));
 
-	M.box_tl = Draw.CachePic('box_tl');
-	M.box_ml = Draw.CachePic('box_ml');
-	M.box_bl = Draw.CachePic('box_bl');
-	M.box_tm = Draw.CachePic('box_tm');
-	M.box_mm = Draw.CachePic('box_mm');
-	M.box_mm2 = Draw.CachePic('box_mm2');
-	M.box_bm = Draw.CachePic('box_bm');
-	M.box_tr = Draw.CachePic('box_tr');
-	M.box_mr = Draw.CachePic('box_mr');
-	M.box_br = Draw.CachePic('box_br');
-
-	M.qplaque = Draw.CachePic('qplaque');
-
-	M.menudot = [
-		Draw.CachePic('menudot1'),
-		Draw.CachePic('menudot2'),
-		Draw.CachePic('menudot3'),
-		Draw.CachePic('menudot4'),
-		Draw.CachePic('menudot5'),
-		Draw.CachePic('menudot6')
-	];
-
-	M.ttl_main = Draw.CachePic('ttl_main');
-	M.mainmenu = Draw.CachePic('mainmenu');
-
-	M.ttl_sgl = Draw.CachePic('ttl_sgl');
-	M.sp_menu = Draw.CachePic('sp_menu');
-	M.p_load = Draw.CachePic('p_load');
-	M.p_save = Draw.CachePic('p_save');
-
-	M.p_multi = Draw.CachePic('p_multi');
-	M.bigbox = Draw.CachePic('bigbox');
-	M.menuplyr = Draw.CachePic('menuplyr');
-	var buf = COM.LoadFile('gfx/menuplyr.lmp');
-	var data = GL.ResampleTexture(M.menuplyr.data, M.menuplyr.width, M.menuplyr.height, 64, 64);
-	var trans = new Uint8Array(new ArrayBuffer(16384));
-	var i, p;
-	for (i = 0; i < 4096; ++i)
-	{
-		p = data[i];
-		if ((p >> 4) === 1)
-		{
-			trans[i << 2] = (p & 15) * 17;
-			trans[(i << 2) + 1] = 255;
-		}
-		else if ((p >> 4) === 6)
-		{
-			trans[(i << 2) + 2] = (p & 15) * 17;
-			trans[(i << 2) + 3] = 255;
-		}
+	['box_tl', 'box_ml', 'box_bl', 'box_tm', 'box_mm', 
+		'box_mm2', 'box_bm', 'box_tr', 'box_mr', 'box_br', 'qplaque',
+		'ttl_main', 'mainmenu', 'ttl_sgl', 'sp_menu', 'p_load', 'p_save',
+		'p_multi', 'bigbox', 'menuplyr', 'p_option', 'ttl_cstm'].forEach(function(assetName){
+			addToPromise(Draw.CachePic, Draw, assetName, assign(assetName));
+		});
+	var i;
+	
+	M.menudot = [];
+	for(i = 1; i <= 6; i++) {
+		addToPromise(Draw.CachePic, Draw, 'menudot' + i, push('menudot'));
 	}
-	M.menuplyr.translate = gl.createTexture();
-	GL.Bind(0, M.menuplyr.translate);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 64, 64, 0, gl.RGBA, gl.UNSIGNED_BYTE, trans);
-	gl.texParameterf(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-	gl.texParameterf(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-	M.p_option = Draw.CachePic('p_option');
-	M.ttl_cstm = Draw.CachePic('ttl_cstm');
-
-	M.help_pages = [
-		Draw.CachePic('help0'),
-		Draw.CachePic('help1'),
-		Draw.CachePic('help2'),
-		Draw.CachePic('help3'),
-		Draw.CachePic('help4'),
-		Draw.CachePic('help5')
-	];
+	M.help_pages = [];
+	for(i = 0; i <= 5; i++) {
+		addToPromise(Draw.CachePic, Draw, 'help' + i, push('help_pages'));
+	}
+	
+	return Promise.all(promises)
+		.then(function(){ return COM.LoadFile('gfx/menuplyr.lmp');})
+		.then(function(buf) {
+			var data = GL.ResampleTexture(M.menuplyr.data, M.menuplyr.width, M.menuplyr.height, 64, 64);
+			var trans = new Uint8Array(new ArrayBuffer(16384));
+			var p;
+			for (i = 0; i < 4096; ++i)
+			{
+				p = data[i];
+				if ((p >> 4) === 1)
+				{
+					trans[i << 2] = (p & 15) * 17;
+					trans[(i << 2) + 1] = 255;
+				}
+				else if ((p >> 4) === 6)
+				{
+					trans[(i << 2) + 2] = (p & 15) * 17;
+					trans[(i << 2) + 3] = 255;
+				}
+			}
+			M.menuplyr.translate = gl.createTexture();
+			GL.Bind(0, M.menuplyr.translate);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 64, 64, 0, gl.RGBA, gl.UNSIGNED_BYTE, trans);
+			gl.texParameterf(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameterf(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		});
 };
 
 M.Draw = function()

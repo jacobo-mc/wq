@@ -132,29 +132,33 @@ Mod.FindName = function(name)
 
 Mod.LoadModel = function(mod, crash)
 {
+	
 	if (mod.needload !== true)
-		return mod;
-	var buf = COM.LoadFile(mod.name);
-	if (buf == null)
-	{
-		if (crash === true)
-			Sys.Error('Mod.LoadModel: ' + mod.name + ' not found');
-		return;
-	}
-	Mod.loadmodel = mod;
-	mod.needload = false;
-	switch ((new DataView(buf)).getUint32(0, true))
-	{
-	case 0x4f504449:
-		Mod.LoadAliasModel(buf);
-		break;
-	case 0x50534449:
-		Mod.LoadSpriteModel(buf);
-		break;
-	default:
-		Mod.LoadBrushModel(buf);
-	}
-	return mod;
+		return Promise.resolve(mod);
+	
+	return COM.LoadFile(mod.name)
+		.then(function(buf){
+			if (buf == null)
+			{
+				if (crash === true)
+					Sys.Error('Mod.LoadModel: ' + mod.name + ' not found');
+				return;
+			}
+			Mod.loadmodel = mod;
+			mod.needload = false;
+			switch ((new DataView(buf)).getUint32(0, true))
+			{
+			case 0x4f504449:
+				Mod.LoadAliasModel(buf);
+				break;
+			case 0x50534449:
+				Mod.LoadSpriteModel(buf);
+				break;
+			default:
+				Mod.LoadBrushModel(buf);
+			}
+			return mod;
+		});
 };
 
 Mod.ForName = function(name, crash)

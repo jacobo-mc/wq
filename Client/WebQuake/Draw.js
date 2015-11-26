@@ -18,6 +18,7 @@ Draw.CharToConback = function(num, dest)
 
 Draw.Init = function()
 {
+	
 	var i;
 
 	Draw.chars = new Uint8Array(W.GetLumpName('CONCHARS'));
@@ -36,71 +37,79 @@ Draw.Init = function()
 	gl.texParameterf(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
 	Draw.conback = {};
-	var cb = COM.LoadFile('gfx/conback.lmp');
-	if (cb == null)
-		Sys.Error('Couldn\'t load gfx/conback.lmp');
-	Draw.conback.width = 320;
-	Draw.conback.height = 200;
-	Draw.conback.data = new Uint8Array(cb, 8, 64000);
-	var ver = '(WebQuake build ' + Def.webquake_version + ') 1.09';
-	for (i = 0; i < ver.length; ++i)
-		Draw.CharToConback(ver.charCodeAt(i), 59829 - ((ver.length - i) << 3), 186);
-	Draw.conback.texnum = GL.LoadPicTexture(Draw.conback);
-
-	Draw.loading = Draw.CachePic('loading');
-	Draw.loadingElem = document.getElementById('loading');
-	Draw.loadingElem.src = Draw.PicToDataURL(Draw.loading);
-
-	document.body.style.backgroundImage = 'url("' + Draw.PicToDataURL(Draw.PicFromWad('BACKTILE')) + '")';
-
-	GL.CreateProgram('Character', ['uCharacter', 'uDest', 'uOrtho'], ['aPoint'], ['tTexture']);
-	GL.CreateProgram('Fill', ['uRect', 'uOrtho', 'uColor'], ['aPoint'], []);
-	GL.CreateProgram('Pic', ['uRect', 'uOrtho'], ['aPoint'], ['tTexture']);
-	GL.CreateProgram('PicTranslate', ['uRect', 'uOrtho', 'uTop', 'uBottom'], ['aPoint'], ['tTexture', 'tTrans']);
+	return COM.LoadFile('gfx/conback.lmp')
+		.then(function(cb){
+			if (cb == null)
+				Sys.Error('Couldn\'t load gfx/conback.lmp');
+			Draw.conback.width = 320;
+			Draw.conback.height = 200;
+			Draw.conback.data = new Uint8Array(cb, 8, 64000);
+			var ver = '(WebQuake build ' + Def.webquake_version + ') 1.09';
+			for (i = 0; i < ver.length; ++i)
+				Draw.CharToConback(ver.charCodeAt(i), 59829 - ((ver.length - i) << 3), 186);
+			Draw.conback.texnum = GL.LoadPicTexture(Draw.conback);
+		
+			return Draw.CachePic('loading')
+				.then(function(loading){
+					Draw.loading = loading;
+					Draw.loadingElem = document.getElementById('loading');
+					Draw.loadingElem.src = Draw.PicToDataURL(Draw.loading);
+				
+					document.body.style.backgroundImage = 'url("' + Draw.PicToDataURL(Draw.PicFromWad('BACKTILE')) + '")';
+				
+					GL.CreateProgram('Character', ['uCharacter', 'uDest', 'uSize', 'uOrtho'], ['aPoint'], ['tTexture']);
+					GL.CreateProgram('Fill', ['uRect', 'uOrtho', 'uColor'], ['aPoint'], []);
+					GL.CreateProgram('Pic', ['uRect', 'uOrtho'], ['aPoint'], ['tTexture']);
+					GL.CreateProgram('PicTranslate', ['uRect', 'uOrtho', 'uTop', 'uBottom'], ['aPoint'], ['tTexture', 'tTrans']);
+				});
+		});
 };
-
-Draw.Character = function(x, y, num)
+var text_size = 8;
+Draw.Character = function(x, y, num, size)
 {
 	var program = GL.UseProgram('Character');
 	GL.Bind(program.tTexture, Draw.char_texture);
 	gl.bindBuffer(gl.ARRAY_BUFFER, GL.rect);
 	gl.vertexAttribPointer(program.aPoint, 2, gl.FLOAT, false, 0, 0);
+	gl.uniform1f(program.uSize, size || 8);
 	gl.uniform2f(program.uCharacter, num & 15, num >> 4);
 	gl.uniform2f(program.uDest, x, y);
 	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 };
 
-Draw.String = function(x, y, str)
+Draw.String = function(x, y, str, size)
 {
 	var program = GL.UseProgram('Character');
 	GL.Bind(program.tTexture, Draw.char_texture);
 	gl.bindBuffer(gl.ARRAY_BUFFER, GL.rect);
 	gl.vertexAttribPointer(program.aPoint, 2, gl.FLOAT, false, 0, 0);
-	var i, num;
+	var i, num, chrSize = size || 8;
 	for (i = 0; i < str.length; ++i)
 	{
 		num = str.charCodeAt(i);
+		gl.uniform1f(program.uSize, chrSize);
 		gl.uniform2f(program.uCharacter, num & 15, num >> 4);
 		gl.uniform2f(program.uDest, x, y);
 		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-		x += 8;
+		x += chrSize;
 	}
 };
 
-Draw.StringWhite = function(x, y, str)
+Draw.StringWhite = function(x, y, str, size)
 {
 	var program = GL.UseProgram('Character');
 	GL.Bind(program.tTexture, Draw.char_texture);
 	gl.bindBuffer(gl.ARRAY_BUFFER, GL.rect);
 	gl.vertexAttribPointer(program.aPoint, 2, gl.FLOAT, false, 0, 0);
-	var i, num;
+	var i, num, chrSize = size || 8;
 	for (i = 0; i < str.length; ++i)
 	{
 		num = str.charCodeAt(i) + 128;
+		gl.uniform1f(program.uSize, chrSize);
 		gl.uniform2f(program.uCharacter, num & 15, num >> 4);
 		gl.uniform2f(program.uDest, x, y);
 		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-		x += 8;
+		x += chrSize;
 	}
 };
 
@@ -119,16 +128,18 @@ Draw.PicFromWad = function(name)
 Draw.CachePic = function(path)
 {
 	path = 'gfx/' + path + '.lmp';
-	var buf = COM.LoadFile(path);
-	if (buf == null)
-		Sys.Error('Draw.CachePic: failed to load ' + path);
-	var dat = {};
-	var view = new DataView(buf, 0, 8);
-	dat.width = view.getUint32(0, true);
-	dat.height = view.getUint32(4, true);
-	dat.data = new Uint8Array(buf, 8, dat.width * dat.height);
-	dat.texnum = GL.LoadPicTexture(dat);
-	return dat;
+	return COM.LoadFile(path)
+		.then(function(buf) {
+			if (buf == null)
+				Sys.Error('Draw.CachePic: failed to load ' + path);
+			var dat = {};
+			var view = new DataView(buf, 0, 8);
+			dat.width = view.getUint32(0, true);
+			dat.height = view.getUint32(4, true);
+			dat.data = new Uint8Array(buf, 8, dat.width * dat.height);
+			dat.texnum = GL.LoadPicTexture(dat);
+			return dat;
+		});
 };
 
 Draw.Pic = function(x, y, pic)

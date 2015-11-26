@@ -11,33 +11,39 @@ Cmd.text = '';
 
 Cmd.Execute = function()
 {
-	var i, c, line = '', quotes = false;
-	while (Cmd.text.length !== 0)
-	{
-		c = Cmd.text.charCodeAt(0);
-		Cmd.text = Cmd.text.substring(1);
-		if (c === 34)
+	var c, line = '', quotes = false;
+	function findNextCommand(){
+		while (Cmd.text.length !== 0)
 		{
-			quotes = !quotes;
-			line += '\42';
-			continue;
-		}
-		if (((quotes === false) && (c === 59)) || (c === 10))
-		{
-			if (line.length === 0)
-				continue;
-			Cmd.ExecuteString(line);
-			if (Cmd.wait === true)
+			c = Cmd.text.charCodeAt(0);
+			Cmd.text = Cmd.text.substring(1);
+			if (c === 34)
 			{
-				Cmd.wait = false;
-				return;
+				quotes = !quotes;
+				line += '\42';
+				continue;
 			}
-			line = '';
-			continue;
+			if (((quotes === false) && (c === 59)) || (c === 10))
+			{
+				if (line.length === 0)
+					continue;
+					
+				return Cmd.ExecuteString(line)
+					.then(function(){
+						if (Cmd.wait === true)
+						{
+							Cmd.wait = false;
+							return false;
+						}
+						line = '';
+						findNextCommand();
+					});
+			}
+			line += String.fromCharCode(c);
 		}
-		line += String.fromCharCode(c);
+		Cmd.text = '';
 	}
-	Cmd.text = '';
+	return findNextCommand();
 };
 
 Cmd.StuffCmds_f = function()
@@ -79,14 +85,15 @@ Cmd.Exec_f = function()
 		Con.Print('exec <filename> : execute a script file\n');
 		return;
 	}
-	var f = COM.LoadTextFile(Cmd.argv[1]);
-	if (f == null)
-	{
-		Con.Print('couldn\'t exec ' + Cmd.argv[1] + '\n');
-		return;
-	}
-	Con.Print('execing ' + Cmd.argv[1] + '\n');
-	Cmd.text = f + Cmd.text;
+	return COM.LoadTextFile(Cmd.argv[1]).then(function(f) {
+		if (f == null)
+		{
+			Con.Print('couldn\'t exec ' + Cmd.argv[1] + '\n');
+			return;
+		}
+		Con.Print('execing ' + Cmd.argv[1] + '\n');
+		Cmd.text = f + Cmd.text;
+	});
 };
 
 Cmd.Echo_f = function()
@@ -194,30 +201,32 @@ Cmd.CompleteCommand = function(partial)
 
 Cmd.ExecuteString = function(text, client)
 {
-	Cmd.client = client;
-	Cmd.TokenizeString(text);
-	if (Cmd.argv.length === 0)
-		return;
-	var name = Cmd.argv[0].toLowerCase();
-	var i;
-	for (i = 0; i < Cmd.functions.length; ++i)
-	{
-		if (Cmd.functions[i].name === name)
+	return new Promise(function(resolve,reject) {
+		Cmd.client = client;
+		Cmd.TokenizeString(text);
+		if (Cmd.argv.length === 0)
+			resolve();
+		var name = Cmd.argv[0].toLowerCase();
+		var i;
+		for (i = 0; i < Cmd.functions.length; ++i)
 		{
-			Cmd.functions[i].command();
-			return;
+			if (Cmd.functions[i].name === name)
+			{
+				return COM.MaybePromise(Cmd.functions[i].command(), resolve, null);
+			}
 		}
-	}
-	for (i = 0; i < Cmd.alias.length; ++i)
-	{
-		if (Cmd.alias[i].name === name)
+		for (i = 0; i < Cmd.alias.length; ++i)
 		{
-			Cmd.text = Cmd.alias[i].value + Cmd.text;
-			return;
+			if (Cmd.alias[i].name === name)
+			{
+				Cmd.text = Cmd.alias[i].value + Cmd.text;
+				resolve();;
+			}
 		}
-	}
-	if (Cvar.Command() !== true)
-		Con.Print('Unknown command "' + name + '"\n');
+		if (Cvar.Command() !== true)
+			Con.Print('Unknown command "' + name + '"\n');
+		resolve();
+	});
 };
 
 Cmd.ForwardToServer = function()

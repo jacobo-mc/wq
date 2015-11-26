@@ -4,8 +4,8 @@ Sys.events = ['onbeforeunload', 'oncontextmenu', 'onfocus', 'onkeydown', 'onkeyu
 
 Sys.Quit = function()
 {
-	if (Sys.frame != null)
-		clearInterval(Sys.frame);
+	if (Sys.looping)
+		Sys.looping = false;
 	var i;
 	for (i = 0; i < Sys.events.length; ++i)
 		window[Sys.events[i]] = null;
@@ -139,20 +139,34 @@ window.onload = function()
 	Sys.scantokey[222] = 39; // '
 
 	Sys.oldtime = Date.now() * 0.001;
-
+	Sys.maxFps = 60.0;
 	Sys.Print('Host.Init\n');
-	Host.Init();
-
-	for (i = 0; i < Sys.events.length; ++i)
-		window[Sys.events[i]] = Sys[Sys.events[i]];
-
-	Sys.frame = setInterval(Host.Frame, 1000.0 / 60.0);
+	Host.Init()
+		.then(function(){
+			for (i = 0; i < Sys.events.length; ++i)
+				window[Sys.events[i]] = Sys[Sys.events[i]];
+			Sys.looping = true;
+			function continueLoop(timeIn) {
+				var putzAroundTime = Math.max((1000.0 / Sys.maxFps) - (Date.now() - timeIn), 0);
+				setTimeout(loop, putzAroundTime);
+			}
+			function loop() {
+				var timeIn = Date.now();
+				var ret = Host.Frame();
+				if(!Sys.looping)
+					return;
+					
+				COM.MaybePromise(ret, function(){ continueLoop(timeIn);});
+			}
+			
+			loop();
+		});
 };
-
-Sys.onbeforeunload = function()
-{
-	return 'Are you sure you want to quit?';
-};
+//
+//Sys.onbeforeunload = function()
+//{
+//	return 'Are you sure you want to quit?';
+//};
 
 Sys.oncontextmenu = function(e)
 {

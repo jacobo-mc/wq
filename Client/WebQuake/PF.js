@@ -453,7 +453,9 @@ PF.precache_model = function()
 			return;
 	}
 	SV.server.model_precache[i] = s;
-	SV.server.models[i] = Mod.ForName(s, true);
+	return Mod.ForName(s, true).then(function(model){
+		SV.server.models[i] = model;
+	});
 };
 
 PF.coredump = function()

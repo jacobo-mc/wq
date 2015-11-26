@@ -297,129 +297,131 @@ PR.GlobalStringNoContents = function(ofs)
 
 PR.LoadProgs = function()
 {
-	var progs = COM.LoadFile('progs.dat');
-	if (progs == null)
-		Sys.Error('PR.LoadProgs: couldn\'t load progs.dat');
-	Con.DPrint('Programs occupy ' + (progs.byteLength >> 10) + 'K.\n');
-	var view = new DataView(progs);
-
-	var i = view.getUint32(0, true);
-	if (i !== PR.version)
-		Sys.Error('progs.dat has wrong version number (' + i + ' should be ' + PR.version + ')');
-	if (view.getUint32(4, true) !== PR.progheader_crc)
-		Sys.Error('progs.dat system vars have been modified, PR.js is out of date');
-
-	PR.crc = CRC.Block(new Uint8Array(progs));
-
-	PR.stack = [];
-	PR.depth = 0;
-
-	PR.localstack = [];
-	for (i = 0; i < PR.localstack_size; ++i)
-		PR.localstack[i] = 0;
-	PR.localstack_used = 0;
-
-	var ofs, num;
-
-	ofs = view.getUint32(8, true);
-	num = view.getUint32(12, true);
-	PR.statements = [];
-	for (i = 0; i < num; ++i)
-	{
-		PR.statements[i] = {
-			op: view.getUint16(ofs, true),
-			a: view.getInt16(ofs + 2, true),
-			b: view.getInt16(ofs + 4, true),
-			c: view.getInt16(ofs + 6, true)
-		};
-		ofs += 8;
-	}
-
-	ofs = view.getUint32(16, true);
-	num = view.getUint32(20, true);
-	PR.globaldefs = [];
-	for (i = 0; i < num; ++i)
-	{
-		PR.globaldefs[i] = {
-			type: view.getUint16(ofs, true),
-			ofs: view.getUint16(ofs + 2, true),
-			name: view.getUint32(ofs + 4, true)
-		};
-		ofs += 8;
-	}
-
-	ofs = view.getUint32(24, true);
-	num = view.getUint32(28, true);
-	PR.fielddefs = [];
-	for (i = 0; i < num; ++i)
-	{
-		PR.fielddefs[i] = {
-			type: view.getUint16(ofs, true),
-			ofs: view.getUint16(ofs + 2, true),
-			name: view.getUint32(ofs + 4, true)
-		};
-		ofs += 8;
-	}
-
-	ofs = view.getUint32(32, true);
-	num = view.getUint32(36, true);
-	PR.functions = [];
-	for (i = 0; i < num; ++i)
-	{
-		PR.functions[i] = {
-			first_statement: view.getInt32(ofs, true),
-			parm_start: view.getUint32(ofs + 4, true),
-			locals: view.getUint32(ofs + 8, true),
-			profile: view.getUint32(ofs + 12, true),
-			name: view.getUint32(ofs + 16, true),
-			file: view.getUint32(ofs + 20, true),
-			numparms: view.getUint32(ofs + 24, true),
-			parm_size: [
-				view.getUint8(ofs + 28), view.getUint8(ofs + 29),
-				view.getUint8(ofs + 30), view.getUint8(ofs + 31),
-				view.getUint8(ofs + 32), view.getUint8(ofs + 33),
-				view.getUint8(ofs + 34), view.getUint8(ofs + 35)
-			]
-		};
-		ofs += 36;
-	}
-
-	ofs = view.getUint32(40, true);
-	num = view.getUint32(44, true);
-	PR.strings = [];
-	for (i = 0; i < num; ++i)
-		PR.strings[i] = view.getUint8(ofs + i);
-	PR.string_temp = PR.NewString('', 128);
-	PR.netnames = PR.NewString('', SV.svs.maxclients << 5);
-
-	ofs = view.getUint32(48, true);
-	num = view.getUint32(52, true);
-	PR.globals = new ArrayBuffer(num << 2);
-	PR.globals_float = new Float32Array(PR.globals);
-	PR.globals_int = new Int32Array(PR.globals);
-	for (i = 0; i < num; ++i)
-		PR.globals_int[i] = view.getInt32(ofs + (i << 2), true);
-
-	PR.entityfields = view.getUint32(56, true);
-	PR.edict_size = 96 + (PR.entityfields << 2);
-
-	var fields = [
-		'ammo_shells1',
-		'ammo_nails1',
-		'ammo_lava_nails',
-		'ammo_rockets1',
-		'ammo_multi_rockets',
-		'ammo_cells1',
-		'ammo_plasma',
-		'gravity',
-		'items2'
-	], field, def;
-	for (i = 0; i < fields.length; ++i)
-	{
-		field = fields[i];
-		def = ED.FindField(field);
-		PR.entvars[field] = (def != null) ? def.ofs : null;
-	}
+	return COM.LoadFile('progs.dat')
+		.then(function(progs) {
+			if (progs == null)
+				Sys.Error('PR.LoadProgs: couldn\'t load progs.dat');
+			Con.DPrint('Programs occupy ' + (progs.byteLength >> 10) + 'K.\n');
+			var view = new DataView(progs);
+		
+			var i = view.getUint32(0, true);
+			if (i !== PR.version)
+				Sys.Error('progs.dat has wrong version number (' + i + ' should be ' + PR.version + ')');
+			if (view.getUint32(4, true) !== PR.progheader_crc)
+				Sys.Error('progs.dat system vars have been modified, PR.js is out of date');
+		
+			PR.crc = CRC.Block(new Uint8Array(progs));
+		
+			PR.stack = [];
+			PR.depth = 0;
+		
+			PR.localstack = [];
+			for (i = 0; i < PR.localstack_size; ++i)
+				PR.localstack[i] = 0;
+			PR.localstack_used = 0;
+		
+			var ofs, num;
+		
+			ofs = view.getUint32(8, true);
+			num = view.getUint32(12, true);
+			PR.statements = [];
+			for (i = 0; i < num; ++i)
+			{
+				PR.statements[i] = {
+					op: view.getUint16(ofs, true),
+					a: view.getInt16(ofs + 2, true),
+					b: view.getInt16(ofs + 4, true),
+					c: view.getInt16(ofs + 6, true)
+				};
+				ofs += 8;
+			}
+		
+			ofs = view.getUint32(16, true);
+			num = view.getUint32(20, true);
+			PR.globaldefs = [];
+			for (i = 0; i < num; ++i)
+			{
+				PR.globaldefs[i] = {
+					type: view.getUint16(ofs, true),
+					ofs: view.getUint16(ofs + 2, true),
+					name: view.getUint32(ofs + 4, true)
+				};
+				ofs += 8;
+			}
+		
+			ofs = view.getUint32(24, true);
+			num = view.getUint32(28, true);
+			PR.fielddefs = [];
+			for (i = 0; i < num; ++i)
+			{
+				PR.fielddefs[i] = {
+					type: view.getUint16(ofs, true),
+					ofs: view.getUint16(ofs + 2, true),
+					name: view.getUint32(ofs + 4, true)
+				};
+				ofs += 8;
+			}
+		
+			ofs = view.getUint32(32, true);
+			num = view.getUint32(36, true);
+			PR.functions = [];
+			for (i = 0; i < num; ++i)
+			{
+				PR.functions[i] = {
+					first_statement: view.getInt32(ofs, true),
+					parm_start: view.getUint32(ofs + 4, true),
+					locals: view.getUint32(ofs + 8, true),
+					profile: view.getUint32(ofs + 12, true),
+					name: view.getUint32(ofs + 16, true),
+					file: view.getUint32(ofs + 20, true),
+					numparms: view.getUint32(ofs + 24, true),
+					parm_size: [
+						view.getUint8(ofs + 28), view.getUint8(ofs + 29),
+						view.getUint8(ofs + 30), view.getUint8(ofs + 31),
+						view.getUint8(ofs + 32), view.getUint8(ofs + 33),
+						view.getUint8(ofs + 34), view.getUint8(ofs + 35)
+					]
+				};
+				ofs += 36;
+			}
+		
+			ofs = view.getUint32(40, true);
+			num = view.getUint32(44, true);
+			PR.strings = [];
+			for (i = 0; i < num; ++i)
+				PR.strings[i] = view.getUint8(ofs + i);
+			PR.string_temp = PR.NewString('', 128);
+			PR.netnames = PR.NewString('', SV.svs.maxclients << 5);
+		
+			ofs = view.getUint32(48, true);
+			num = view.getUint32(52, true);
+			PR.globals = new ArrayBuffer(num << 2);
+			PR.globals_float = new Float32Array(PR.globals);
+			PR.globals_int = new Int32Array(PR.globals);
+			for (i = 0; i < num; ++i)
+				PR.globals_int[i] = view.getInt32(ofs + (i << 2), true);
+		
+			PR.entityfields = view.getUint32(56, true);
+			PR.edict_size = 96 + (PR.entityfields << 2);
+		
+			var fields = [
+				'ammo_shells1',
+				'ammo_nails1',
+				'ammo_lava_nails',
+				'ammo_rockets1',
+				'ammo_multi_rockets',
+				'ammo_cells1',
+				'ammo_plasma',
+				'gravity',
+				'items2'
+			], field, def;
+			for (i = 0; i < fields.length; ++i)
+			{
+				field = fields[i];
+				def = ED.FindField(field);
+				PR.entvars[field] = (def != null) ? def.ofs : null;
+			}
+		});
 };
 
 PR.Init = function()
@@ -610,8 +612,8 @@ PR.ExecuteProgram = function(fnum)
 	var s = PR.EnterFunction(PR.functions[fnum]);
 	var st, ed, ptr, newf;
 
-	for (;;)
-	{
+	function processOne() {
+		
 		++s;
 		st = PR.statements[s];
 		if (--runaway === 0)
@@ -624,125 +626,125 @@ PR.ExecuteProgram = function(fnum)
 		{
 		case PR.op.add_f:
 			PR.globals_float[st.c] = PR.globals_float[st.a] + PR.globals_float[st.b];
-			continue;
+			return true;
 		case PR.op.add_v:
 			PR.globals_float[st.c] = PR.globals_float[st.a] + PR.globals_float[st.b];
 			PR.globals_float[st.c + 1] = PR.globals_float[st.a + 1] + PR.globals_float[st.b + 1];
 			PR.globals_float[st.c + 2] = PR.globals_float[st.a + 2] + PR.globals_float[st.b + 2];
-			continue;
+			return true;
 		case PR.op.sub_f:
 			PR.globals_float[st.c] = PR.globals_float[st.a] - PR.globals_float[st.b];
-			continue;
+			return true;
 		case PR.op.sub_v:
 			PR.globals_float[st.c] = PR.globals_float[st.a] - PR.globals_float[st.b];
 			PR.globals_float[st.c + 1] = PR.globals_float[st.a + 1] - PR.globals_float[st.b + 1];
 			PR.globals_float[st.c + 2] = PR.globals_float[st.a + 2] - PR.globals_float[st.b + 2];
-			continue;
+			return true;
 		case PR.op.mul_f:
 			PR.globals_float[st.c] = PR.globals_float[st.a] * PR.globals_float[st.b];
-			continue;
+			return true;
 		case PR.op.mul_v:
 			PR.globals_float[st.c] = PR.globals_float[st.a] * PR.globals_float[st.b] +
 				PR.globals_float[st.a + 1] * PR.globals_float[st.b + 1] +
 				PR.globals_float[st.a + 2] * PR.globals_float[st.b + 2];
-			continue;
+			return true;
 		case PR.op.mul_fv:
 			PR.globals_float[st.c] = PR.globals_float[st.a] * PR.globals_float[st.b];
 			PR.globals_float[st.c + 1] = PR.globals_float[st.a] * PR.globals_float[st.b + 1];
 			PR.globals_float[st.c + 2] = PR.globals_float[st.a] * PR.globals_float[st.b + 2];
-			continue;
+			return true;
 		case PR.op.mul_vf:
 			PR.globals_float[st.c] = PR.globals_float[st.b] * PR.globals_float[st.a];
 			PR.globals_float[st.c + 1] = PR.globals_float[st.b] * PR.globals_float[st.a + 1];
 			PR.globals_float[st.c + 2] = PR.globals_float[st.b] * PR.globals_float[st.a + 2];
-			continue;
+			return true;
 		case PR.op.div_f:
 			PR.globals_float[st.c] = PR.globals_float[st.a] / PR.globals_float[st.b];
-			continue;
+			return true;
 		case PR.op.bitand:
 			PR.globals_float[st.c] = PR.globals_float[st.a] & PR.globals_float[st.b];
-			continue;
+			return true;
 		case PR.op.bitor:
 			PR.globals_float[st.c] = PR.globals_float[st.a] | PR.globals_float[st.b];
-			continue;
+			return true;
 		case PR.op.ge:
 			PR.globals_float[st.c] = (PR.globals_float[st.a] >= PR.globals_float[st.b]) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.le:
 			PR.globals_float[st.c] = (PR.globals_float[st.a] <= PR.globals_float[st.b]) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.gt:
 			PR.globals_float[st.c] = (PR.globals_float[st.a] > PR.globals_float[st.b]) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.lt:
 			PR.globals_float[st.c] = (PR.globals_float[st.a] < PR.globals_float[st.b]) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.and:
 			PR.globals_float[st.c] = ((PR.globals_float[st.a] !== 0.0) && (PR.globals_float[st.b] !== 0.0)) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.or:
 			PR.globals_float[st.c] = ((PR.globals_float[st.a] !== 0.0) || (PR.globals_float[st.b] !== 0.0)) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.not_f:
 			PR.globals_float[st.c] = (PR.globals_float[st.a] === 0.0) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.not_v:
 			PR.globals_float[st.c] = ((PR.globals_float[st.a] === 0.0) &&
 				(PR.globals_float[st.a + 1] === 0.0) &&
 				(PR.globals_float[st.a + 2] === 0.0)) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.not_s:
 			if (PR.globals_int[st.a] !== 0)
 				PR.globals_float[st.c] = (PR.strings[PR.globals_int[st.a]] === 0) ? 1.0 : 0.0;
 			else
 				PR.globals_float[st.c] = 1.0;
-			continue;
+			return true;
 		case PR.op.not_fnc:
 		case PR.op.not_ent:
 			PR.globals_float[st.c] = (PR.globals_int[st.a] === 0) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.eq_f:
 			PR.globals_float[st.c] = (PR.globals_float[st.a] === PR.globals_float[st.b]) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.eq_v:
 			PR.globals_float[st.c] = ((PR.globals_float[st.a] === PR.globals_float[st.b])
 				&& (PR.globals_float[st.a + 1] === PR.globals_float[st.b + 1])
 				&& (PR.globals_float[st.a + 2] === PR.globals_float[st.b + 2])) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.eq_s:
 			PR.globals_float[st.c] = (PR.GetString(PR.globals_int[st.a]) === PR.GetString(PR.globals_int[st.b])) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.eq_e:
 		case PR.op.eq_fnc:
 			PR.globals_float[st.c] = (PR.globals_int[st.a] === PR.globals_int[st.b]) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.ne_f:
 			PR.globals_float[st.c] = (PR.globals_float[st.a] !== PR.globals_float[st.b]) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.ne_v:
 			PR.globals_float[st.c] = ((PR.globals_float[st.a] !== PR.globals_float[st.b])
 				|| (PR.globals_float[st.a + 1] !== PR.globals_float[st.b + 1])
 				|| (PR.globals_float[st.a + 2] !== PR.globals_float[st.b + 2])) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.ne_s:
 			PR.globals_float[st.c] = (PR.GetString(PR.globals_int[st.a]) !== PR.GetString(PR.globals_int[st.b])) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.ne_e:
 		case PR.op.ne_fnc:
 			PR.globals_float[st.c] = (PR.globals_int[st.a] !== PR.globals_int[st.b]) ? 1.0 : 0.0;
-			continue;
+			return true;
 		case PR.op.store_f:
 		case PR.op.store_ent:
 		case PR.op.store_fld:
 		case PR.op.store_s:
 		case PR.op.store_fnc:
 			PR.globals_int[st.b] = PR.globals_int[st.a];
-			continue;
+			return true;
 		case PR.op.store_v:
 			PR.globals_int[st.b] = PR.globals_int[st.a];
 			PR.globals_int[st.b + 1] = PR.globals_int[st.a + 1];
 			PR.globals_int[st.b + 2] = PR.globals_int[st.a + 2];
-			continue;
+			return true;
 		case PR.op.storep_f:
 		case PR.op.storep_ent:
 		case PR.op.storep_fld:
@@ -750,45 +752,45 @@ PR.ExecuteProgram = function(fnum)
 		case PR.op.storep_fnc:
 			ptr = PR.globals_int[st.b];
 			SV.server.edicts[Math.floor(ptr / PR.edict_size)].v_int[((ptr % PR.edict_size) - 96) >> 2] = PR.globals_int[st.a];
-			continue;
+			return true;
 		case PR.op.storep_v:
 			ed = SV.server.edicts[Math.floor(PR.globals_int[st.b] / PR.edict_size)];
 			ptr = ((PR.globals_int[st.b] % PR.edict_size) - 96) >> 2;
 			ed.v_int[ptr] = PR.globals_int[st.a];
 			ed.v_int[ptr + 1] = PR.globals_int[st.a + 1];
 			ed.v_int[ptr + 2] = PR.globals_int[st.a + 2];
-			continue;
+			return true;
 		case PR.op.address:
 			ed = PR.globals_int[st.a];
 			if ((ed === 0) && (SV.server.loading !== true))
 				PR.RunError('assignment to world entity');
 			PR.globals_int[st.c] = ed * PR.edict_size + 96 + (PR.globals_int[st.b] << 2);
-			continue;
+			return true;
 		case PR.op.load_f:
 		case PR.op.load_fld:
 		case PR.op.load_ent:
 		case PR.op.load_s:
 		case PR.op.load_fnc:
 			PR.globals_int[st.c] = SV.server.edicts[PR.globals_int[st.a]].v_int[PR.globals_int[st.b]];
-			continue;
+			return true;
 		case PR.op.load_v:
 			ed = SV.server.edicts[PR.globals_int[st.a]];
 			ptr = PR.globals_int[st.b];
 			PR.globals_int[st.c] = ed.v_int[ptr];
 			PR.globals_int[st.c + 1] = ed.v_int[ptr + 1];
 			PR.globals_int[st.c + 2] = ed.v_int[ptr + 2];
-			continue;
+			return true;
 		case PR.op.jz:
 			if (PR.globals_int[st.a] === 0)
 				s += st.b - 1;
-			continue;
+			return true;
 		case PR.op.jnz:
 			if (PR.globals_int[st.a] !== 0)
 				s += st.b - 1;
-			continue;
+			return true;
 		case PR.op.jump:
 			s += st.a - 1;
-			continue;
+			return true;
 		case PR.op.call0:
 		case PR.op.call1:
 		case PR.op.call2:
@@ -807,11 +809,10 @@ PR.ExecuteProgram = function(fnum)
 				ptr = -newf.first_statement;
 				if (ptr >= PF.builtin.length)
 					PR.RunError('Bad builtin call number');
-				PF.builtin[ptr]();
-				continue;
+				return PF.builtin[ptr]() || true;
 			}
 			s = PR.EnterFunction(newf);
-			continue;
+			return true;
 		case PR.op.done:
 		case PR.op.ret:
 			PR.globals_int[1] = PR.globals_int[st.a];
@@ -819,17 +820,31 @@ PR.ExecuteProgram = function(fnum)
 			PR.globals_int[3] = PR.globals_int[st.a + 2];
 			s = PR.LeaveFunction();
 			if (PR.depth === exitdepth)
-				return;
-			continue;
+				return false;
+			return true;
 		case PR.op.state:
 			ed = SV.server.edicts[PR.globals_int[PR.globalvars.self]];
 			ed.v_float[PR.entvars.nextthink] = PR.globals_float[PR.globalvars.time] + 0.1;
 			ed.v_float[PR.entvars.frame] = PR.globals_float[st.a];
 			ed.v_int[PR.entvars.think] = PR.globals_int[st.b];
-			continue;
+			return true;
 		}
 		PR.RunError('Bad opcode ' + st.op);
 	}
+	return new Promise(function(resolve,reject) {
+		function processAll(){
+			var ret = processOne();
+			if(ret && ret.then){
+				return ret.then(processAll);
+			} else if(ret === true) {
+				return processAll();
+			} else {
+				resolve();
+			}
+		}
+		processAll();
+	});
+	
 };
 
 PR.GetString = function(num)

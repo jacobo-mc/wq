@@ -322,12 +322,11 @@ ED.LoadFromFile = function(data)
 {
 	var ent, spawnflags, inhibit = 0, func;
 	PR.globals_float[PR.globalvars.time] = SV.server.time;
-
-	for (;;)
-	{
+	
+	function processOne() {
 		data = COM.Parse(data);
 		if (data == null)
-			break;
+			return false;
 		if (COM.token.charCodeAt(0) !== 123)
 			Sys.Error('ED.LoadFromFile: found ' + COM.token + ' when expecting {');
 
@@ -344,7 +343,7 @@ ED.LoadFromFile = function(data)
 			{
 				ED.Free(ent);
 				++inhibit;
-				continue;
+				return true;
 			}
 		}
 		else if (((Host.current_skill === 0) && ((spawnflags & 256) !== 0))
@@ -353,7 +352,7 @@ ED.LoadFromFile = function(data)
 		{
 			ED.Free(ent);
 			++inhibit;
-			continue;
+			return true;
 		}
 
 		if (ent.v_int[PR.entvars.classname] === 0)
@@ -361,7 +360,7 @@ ED.LoadFromFile = function(data)
 			Con.Print('No classname for:\n');
 			ED.Print(ent);
 			ED.Free(ent);
-			continue;
+			return true;
 		}
 
 		func = ED.FindFunction(PR.GetString(ent.v_int[PR.entvars.classname]));
@@ -370,14 +369,28 @@ ED.LoadFromFile = function(data)
 			Con.Print('No spawn function for:\n');
 			ED.Print(ent);
 			ED.Free(ent);
-			continue;
+			return true;
 		}
 
 		PR.globals_int[PR.globalvars.self] = ent.num;
-		PR.ExecuteProgram(func);
+		return PR.ExecuteProgram(func);
 	}
 
-	Con.DPrint(inhibit + ' entities inhibited\n');
+	return new Promise(function(resolve,reject) {
+		function processAll() { 
+			var ret = processOne();
+			
+			if(ret && ret.then){
+				ret.then(processAll)
+			} else if(ret){
+				processAll();
+			} else {
+				Con.DPrint(inhibit + ' entities inhibited\n');
+				resolve();
+			}
+		}
+		processAll();
+	});
 };
 
 ED.Vector = function(e, o)

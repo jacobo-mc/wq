@@ -13,6 +13,10 @@ Sbar.DontShowScores = function()
 Sbar.Init = function()
 {
 	var i;
+	function makePromise(loadFn, ctx, assetName, fn) {
+		return loadFn.call(ctx, assetName).then(fn);
+	}
+	function assign(prop) { return function(asset){ Sbar[prop] = asset; };	}
 
 	Sbar.nums = [[], []];
 	for (i = 0; i < 10; ++i)
@@ -107,11 +111,6 @@ Sbar.Init = function()
 	Sbar.ibar = Draw.PicFromWad('IBAR');
 	Sbar.scorebar = Draw.PicFromWad('SCOREBAR');
 
-	Sbar.ranking = Draw.CachePic('ranking');
-	Sbar.complete = Draw.CachePic('complete');
-	Sbar.inter = Draw.CachePic('inter');
-	Sbar.finale = Draw.CachePic('finale');
-
 	Sbar.disc = Draw.PicFromWad('DISC');
 
 	if (COM.hipnotic === true)
@@ -170,6 +169,10 @@ Sbar.Init = function()
 			Draw.PicFromWad('R_AMMOPLASMA')
 		];
 	}
+	
+	return Promise.all(['ranking', 'complete', 'inter', 'finale'].map(function(assetName){
+		return makePromise(Draw.CachePic, Draw, assetName, assign(assetName));
+	}));
 };
 
 Sbar.DrawPic = function(x, y, pic)
@@ -562,28 +565,51 @@ Sbar.IntermissionNumber = function(x, y, num)
 	}
 };
 
-Sbar.DeathmatchOverlay = function()
-{
-	Draw.Pic((VID.width - Sbar.ranking.width) >> 1, 8, Sbar.ranking);
-	Sbar.SortFrags();
-
-	var x = (VID.width >> 1) - 80, y = 40;
-	var i, s, f;
-	for (i = 0; i < Sbar.scoreboardlines; ++i)
-	{
-		s = CL.state.scores[Sbar.fragsort[i]];
-		if (s.name.length === 0)
-			continue;
-		Draw.Fill(x, y, 40, 4, (s.colors & 0xf0) + 8);
-		Draw.Fill(x, y + 4, 40, 4, ((s.colors & 0xf) << 4) + 8);
-		f = s.frags.toString();
-		Draw.String(x + 32 - (f.length << 3), y, f);
-		if (Sbar.fragsort[i] === (CL.state.viewentity - 1))
-			Draw.Character(x - 8, y, 12);
-		Draw.String(x + 64, y, s.name);
-		y += 10;
+Sbar.DeathmatchOverlay = (function() {
+	var defaultsv = {
+		colorBlockWidth: 40,
+		colorBlockHeight: 4,
+		scoreWidth: 80,
+		scoreNameXOffset: 64,
+		scoreXOffset: 32
+	};
+	var sv = {}
+	function reCalc(newCharSize){
+		var scaler = newCharSize/8;
+		for(var prop in defaultsv)
+		{
+			sv[prop] = (defaultsv[prop] * scaler);
+		}
+		sv.charsize = newCharSize;
 	}
-};
+	return function(){
+		var charsize = SCR.charsize.value;
+		if(charsize !== sv.charsize){
+			reCalc(charsize);
+		}
+		
+		Draw.Pic((VID.width - Sbar.ranking.width) >> 1, 8, Sbar.ranking);
+		Sbar.SortFrags();
+	
+		var x = (VID.width >> 1) - sv.scoreWidth, y = 40;
+		var i, s, f, step = charsize + 2;
+		
+		for (i = 0; i < Sbar.scoreboardlines; ++i)
+		{
+			s = CL.state.scores[Sbar.fragsort[i]];
+			if (s.name.length === 0)
+				continue;
+			Draw.Fill(x, y, sv.colorBlockWidth, sv.colorBlockHeight, (s.colors & 0xf0) + 8);
+			Draw.Fill(x, y + sv.colorBlockHeight, sv.colorBlockWidth, sv.colorBlockHeight, ((s.colors & 0xf) << 4) + 8);
+			f = s.frags.toString();
+			Draw.String(x + sv.scoreXOffset - (f.length * charsize), y, f, charsize);
+			if (Sbar.fragsort[i] === (CL.state.viewentity - 1))
+				Draw.Character(x - 8, y, 12, charsize);
+			Draw.String(x + sv.scoreNameXOffset, y, s.name, charsize);
+			y += step;
+		}
+	}
+}());
 
 Sbar.MiniDeathmatchOverlay = function()
 {
