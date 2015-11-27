@@ -19,7 +19,7 @@ Store = (function(){
 				alert("Why didn't you allow my web app to use IndexedDB?!");
 				reject();
 			};
-			openReq.onsuccess = function(){
+			openReq.onsuccess = function(event){
 				resolve(event.target.result);
 			};
 		});
