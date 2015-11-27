@@ -27,8 +27,8 @@ Sys.Print = function(text)
 
 Sys.Error = function(text)
 {
-	if (Sys.frame != null)
-		clearInterval(Sys.frame);
+	if (Sys.looping)
+		Sys.looping = false;
 	var i;
 	for (i = 0; i < Sys.events.length; ++i)
 		window[Sys.events[i]] = null;
@@ -155,7 +155,7 @@ window.onload = function()
 			}
             function continueLoopFn(timeIn) {
                 return function(){
-                    continueLoop();
+                    continueLoop(timeIn);
                 };
             }
 			function loop() {
@@ -180,11 +180,11 @@ window.onload = function()
 			loop();
 		});
 };
-//
-//Sys.onbeforeunload = function()
-//{
-//	return 'Are you sure you want to quit?';
-//};
+
+Sys.onbeforeunload = function()
+{
+	return 'Are you sure you want to quit?';
+};
 
 Sys.oncontextmenu = function(e)
 {
