@@ -832,6 +832,7 @@ PR.ExecuteProgram = function(fnum)
 		}
 		PR.RunError('Bad opcode ' + st.op);
 	}
+    
 	return new Promise(function(resolve,reject) {
 		function processAll(){
 			var ret = processOne();

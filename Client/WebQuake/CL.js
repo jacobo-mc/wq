@@ -1652,22 +1652,28 @@ CL.ParseBeam = function(m)
 CL.ParseTEnt = function()
 {
 	var type = MSG.ReadByte();
-
+    var boltModelPromise = null;
 	switch (type)
 	{
 	case Protocol.te.lightning1:
-		CL.ParseBeam(Mod.ForName('progs/bolt.mdl', true));
-		return;
+		boltModelPromise = Mod.ForName('progs/bolt.mdl', true);
+        break;
 	case Protocol.te.lightning2:
-		CL.ParseBeam(Mod.ForName('progs/bolt2.mdl', true));
-		return;
+		boltModelPromise = Mod.ForName('progs/bolt2.mdl', true);
+        break;
 	case Protocol.te.lightning3:
-		CL.ParseBeam(Mod.ForName('progs/bolt3.mdl', true));
-		return;
+		boltModelPromise = Mod.ForName('progs/bolt3.mdl', true);
+        break;
 	case Protocol.te.beam:
-		CL.ParseBeam(Mod.ForName('progs/beam.mdl', true));
-		return;
+		boltModelPromise = Mod.ForName('progs/beam.mdl', true);
+        break;
 	}
+    
+    if(boltModelPromise){
+        return boltModelPromise.then(function(model){
+            return CL.ParseBeam(model);
+        })
+    }
 
 	var pos = [MSG.ReadCoord(), MSG.ReadCoord(), MSG.ReadCoord()];
 	var dl;

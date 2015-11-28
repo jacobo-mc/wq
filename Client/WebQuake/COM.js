@@ -332,6 +332,11 @@ COM.LoadFile = function(filename)
 						} else if(--packIdx >= 0) {
 							return runSearchPack();
 						} else {
+                            if(search.location === "store"){
+                                if(--searchPathIdx >= 0){
+                                    return searchPath(COM.searchpaths[searchPathIdx]);
+                                }   
+                            }
 							return searchNet(netpath)
 								.then(function(data) {
 									if(data) {
