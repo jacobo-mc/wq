@@ -1,8 +1,13 @@
-# WebQuake (Fork by efess)
+# WebQuake (Fork by kzahel (Fork by efess))
 
 **WebQuake** is an HTML5 WebGL port of the game Quake by id Software.
 
-# Features added in this fork
+# Features added in this fork (kzahel)
+* gamepad support
+* restore web audio api
+* remove localStorage
+
+# Features added in parent fork (efess)
 * Acknowledging deprecated syncronous APIs, this source uses ECMA 6 Promises to support JS's natural async nature
 * Ability to store and use local (to user) assets in the browser
 
