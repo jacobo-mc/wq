@@ -156,7 +156,7 @@ COM.InitArgv = function(argv)
 
 COM.Init = function()
 {
-	if ((document.location.protocol !== 'http:') && (document.location.protocol !== 'https:'))
+	if ((document.location.protocol !== 'chrome-extension:') && (document.location.protocol !== 'http:') && (document.location.protocol !== 'https:'))
 		Sys.Error('Protocol is ' + document.location.protocol + ', not http: or https:');
 
 	var swaptest = new ArrayBuffer(2);
@@ -198,7 +198,7 @@ COM.WriteFile = function(filename, data, len)
 		dest[i] = String.fromCharCode(data[i]);
 	try
 	{
-		localStorage.setItem('Quake.' + COM.searchpaths[COM.searchpaths.length - 1].filename + '/' + filename, dest.join(''));
+		_localStorage.setItem('Quake.' + COM.searchpaths[COM.searchpaths.length - 1].filename + '/' + filename, dest.join(''));
 	}
 	catch (e)
 	{
@@ -214,7 +214,7 @@ COM.WriteTextFile = function(filename, data)
 	filename = filename.toLowerCase();
 	try
 	{
-		localStorage.setItem('Quake.' + COM.searchpaths[COM.searchpaths.length - 1].filename + '/' + filename, data);
+		_localStorage.setItem('Quake.' + COM.searchpaths[COM.searchpaths.length - 1].filename + '/' + filename, data);
 	}
 	catch (e)
 	{
@@ -275,7 +275,7 @@ COM.LoadFile = function(filename)
 					xhr.onload = function(){
 						if ((xhr.status >= 200) && (xhr.status <= 299) && (xhr.responseText.length === file.filelen))
 						{
-							Sys.Print('PackFile: ' + searchProps.filename + '/pak' + packNum + '.pak : ' + filename + '\n')
+							//Sys.Print('PackFile: ' + searchProps.filename + '/pak' + packNum + '.pak : ' + filename + '\n')
 							Draw.EndDisc();
 							resolve(Q.strmem(xhr.responseText));
 						}
@@ -316,7 +316,7 @@ COM.LoadFile = function(filename)
 	function searchPath(search) {
 		netpath = search.filename + '/' + filename;
 		
-		data = localStorage.getItem('Quake.' + netpath);
+		data = _localStorage.getItem('Quake.' + netpath);
 		if (data != null)
 		{
 			Sys.Print('FindFile: ' + netpath + '\n');

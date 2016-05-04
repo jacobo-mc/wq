@@ -90,6 +90,7 @@ M.ToggleMenu_f = function()
 		M.state.value = M.state.none;
 		return;
 	}
+	document.exitPointerLock()
 	M.Menu_Main_f();
 };
 
@@ -123,6 +124,7 @@ M.Main_Key = function(k)
 	switch (k)
 	{
 	case Key.k.escape:
+		Host.WriteConfiguration()
 		Key.dest.value = Key.dest.game;
 		M.state.value = M.state.none;
 		CL.cls.demonum = M.save_demonum;
@@ -204,8 +206,8 @@ M.SinglePlayer_Key = function(k)
 		case 0:
 			if (SV.server.active === true)
 			{
-				if (confirm('Are you sure you want to start a new game?') !== true)
-					return;
+//				if (confirm('Are you sure you want to start a new game?') !== true)
+//					return;
 				Cmd.text += 'disconnect\n';
 			}
 			Key.dest.value = Key.dest.game;
@@ -235,7 +237,7 @@ M.ScanSaves = function()
     
     function scanSave(saveNum) {
         var promise;
-		var localFile = f = localStorage.getItem(search + saveNum + '.sav');
+		var localFile = f = _localStorage.getItem(search + saveNum + '.sav');
 		if (localFile != null){
             promise = Promise.resolve(localFile);
 			M.removable[saveNum] = true;
@@ -359,7 +361,7 @@ M.Load_Key = function(k)
 			return;
 		if (confirm('Delete selected game?') !== true)
 			return;
-		localStorage.removeItem('Quake.' + COM.gamedir[0].filename + '/s' + M.load_cursor + '.sav');
+		_localStorage.removeItem('Quake.' + COM.gamedir[0].filename + '/s' + M.load_cursor + '.sav');
 		M.ScanSaves();
 	}
 };
@@ -393,7 +395,7 @@ M.Save_Key = function(k)
 			return;
 		if (confirm('Delete selected game?') !== true)
 			return;
-		localStorage.removeItem('Quake.' + COM.gamedir[0].filename + '/s' + M.load_cursor + '.sav');
+		_localStorage.removeItem('Quake.' + COM.gamedir[0].filename + '/s' + M.load_cursor + '.sav');
 		M.ScanSaves();
 	}
 };
@@ -554,7 +556,7 @@ M.MultiPlayer_Key = function(k)
 
 // Options menu
 M.options_cursor = 0;
-M.options_items = 11;
+M.options_items = 14;
 
 M.Menu_Options_f = function()
 {
@@ -627,6 +629,22 @@ M.AdjustSliders = function(dir)
 		return;
 	case 11: // lookstrafe
 		Cvar.SetValue('lookstrafe', (CL.lookstrafe.value !== 0) ? 0 : 1);
+    case 12: // fullscreen
+		if (V.vid_fullscreen.value !== 0 || ! document.fullscreenElement) {
+			VID.mainwindow.webkitRequestFullScreen()
+			V.vid_fullscreen.value = 1
+			// exit the menu...
+			M.ToggleMenu_f()
+			M.ToggleMenu_f()
+		} else {
+			document.webkitExitFullscreen()
+			V.vid_fullscreen.value = 0
+		}
+		Cvar.SetValue('vid_fullscreen',V.vid_fullscreen.value);
+		return;
+    case 13: // swap gamepad joysticks
+		Cvar.SetValue('joyswap', (CL.joyswap.value !== 0) ? 0 : 1);
+		return
 	}
 };
 
@@ -678,6 +696,10 @@ M.Options_Draw = function()
 	M.Print(220, 112, (CL.lookspring.value !== 0) ? 'on' : 'off');
 	M.Print(112, 120, 'Lookstrafe');
 	M.Print(220, 120, (CL.lookstrafe.value !== 0) ? 'on' : 'off');
+	M.Print(112, 128, 'Fullscreen');
+	M.Print(220, 128, (V.vid_fullscreen.value !== 0) ? 'on' : 'off');
+	M.Print(96, 136, 'Gamepad Swap');
+	M.Print(220, 136, (CL.joyswap.value !== 0) ? 'on' : 'off');
 	
 	M.DrawCharacter(200, 32 + (M.options_cursor << 3), 12 + ((Host.realtime * 4.0) & 1));
 };

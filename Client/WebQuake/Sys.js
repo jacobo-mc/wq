@@ -2,6 +2,32 @@ Sys = {};
 
 Sys.events = ['onbeforeunload', 'oncontextmenu', 'onfocus', 'onkeydown', 'onkeyup', 'onmousedown', 'onmouseup', 'onmousewheel', 'onunload', 'onwheel'];
 
+Sys.ongamepadpoll = function(e) { // on joystick event
+	// gamepad events are not edge triggered
+
+	Key.gamepadlastaxes = e.axes;
+	if (Key.gamepadlastbuttons) {
+
+	for (var i=0; i<e.buttons.length; i++) {
+		if (e.buttons[i].value != Key.gamepadlastbuttons[i]) {
+		if (e.buttons[i].value) {
+			Key.Event(Key.k['joy'+(i+1)], true)
+			//console.log("JOY"+(i+1), true)
+		} else {
+			Key.Event(Key.k['joy'+(i+1)])
+			//console.log("JOY"+(i+1), false)
+		}
+		}
+	}
+	Key.gamepadlastbuttons = e.buttons.map( function(b) { return b.value } )
+
+	} else {
+	// first time gamepad was registered
+	// likely no buttons were pressed. move on
+	Key.gamepadlastbuttons = e.buttons.map( function(b) { return b.value } )
+	}
+}
+
 Sys.Quit = function()
 {
 	if (Sys.looping)
@@ -16,7 +42,7 @@ Sys.Quit = function()
 		document.getElementById('end2').style.display = 'inline';
 	else
 		document.getElementById('end1').style.display = 'inline';
-	throw new Error;
+	//throw new Error;
 };
 
 Sys.Print = function(text)
@@ -43,7 +69,8 @@ Sys.Error = function(text)
 		for (; i < Con.text.length; ++i)
 			console.log(Con.text[i].text);
 	}
-	alert(text);
+	//alert(text);
+	document.exitPointerLock()
 	throw new Error(text);
 };
 
@@ -52,7 +79,7 @@ Sys.FloatTime = function()
 	return Date.now() * 0.001 - Sys.oldtime;
 };
 
-window.onload = function()
+window.onload_ = function()
 {
 	if (Number.isNaN != null)
 		Q.isNaN = Number.isNaN;
@@ -143,8 +170,10 @@ window.onload = function()
 	Sys.Print('Host.Init\n');
 	Host.Init()
 		.then(function(){
-			for (i = 0; i < Sys.events.length; ++i)
-				window[Sys.events[i]] = Sys[Sys.events[i]];
+			for (i = 0; i < Sys.events.length; ++i) {
+				if (Sys[Sys.events[i]])
+					window[Sys.events[i]] = Sys[Sys.events[i]];
+			}
 			Sys.looping = true;
 			function continueLoop(timeIn) {
                 // if(COM.inAsync){
@@ -152,6 +181,7 @@ window.onload = function()
                 // }
 				var putzAroundTime = Math.max((1000.0 / Sys.maxFps) - (Date.now() - timeIn), 0);
 				setTimeout(loop, putzAroundTime);
+				// wouldnt requestanimationframe be better?
 			}
             function continueLoopFn(timeIn) {
                 return function(){
@@ -180,11 +210,33 @@ window.onload = function()
 			loop();
 		});
 };
+window._localStorage = { data: {},
+						getItem: function(k) { return window._localStorage.data[k] },
+						removeItem: function(k) {
+							delete window._localStorage.data[k]
+							chrome.storage.local.remove([k], function(){})
+						},
+						setItem: function(k,v) {
+							window._localStorage.data[k] = v
+							var d = {}
+							d[k] = v
+							chrome.storage.local.set(d, function(){})
+						}
+					  }
 
-Sys.onbeforeunload = function()
-{
-	return 'Are you sure you want to quit?';
-};
+window.onload = setTimeout(function() {
+	chrome.storage.local.get(null, function(rd) {
+		window._localStorage.data = rd
+		window.onload_()
+	})
+}, 2000)
+
+if (! window.chrome.runtime) {
+	Sys.onbeforeunload = function()
+	{
+		//return 'Are you sure you want to quit?';
+	};
+}
 
 Sys.oncontextmenu = function(e)
 {
@@ -269,10 +321,12 @@ Sys.onmousewheel = function(e)
 	e.preventDefault();
 };
 
-Sys.onunload = function()
-{
-	Host.Shutdown();
-};
+if (! chrome.runtime) {
+	Sys.onunload = function()
+	{
+		Host.Shutdown();
+	};
+}
 
 Sys.onwheel = function(e)
 {

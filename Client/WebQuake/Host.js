@@ -189,6 +189,10 @@ Host.time3 = 0.0;
 Host._Frame = function()
 {
 	Math.random();
+    Host._gamepad = (navigator.getGamepads && navigator.getGamepads()[0]);
+    if (Host._gamepad) {
+        Sys.ongamepadpoll(Host._gamepad);
+    }
 
 	Host.realtime = Sys.FloatTime();
 	Host.frametime = Host.realtime - Host.oldrealtime;
@@ -293,7 +297,6 @@ Host.Frame = function()
 		Con.Print('serverprofile: ' + (c <= 9 ? ' ' : '') + c + ' clients ' + (m <= 9 ? ' ' : '') + m + ' msec\n');
 	});
 };
-
 Host.Init = function()
 {
 	Host.oldrealtime = Sys.FloatTime();

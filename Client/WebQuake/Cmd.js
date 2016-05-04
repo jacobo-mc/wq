@@ -206,7 +206,7 @@ Cmd.ExecuteString = function(text, client)
 		Cmd.TokenizeString(text);
 		if (Cmd.argv.length === 0)
 			resolve();
-		var name = Cmd.argv[0].toLowerCase();
+	    var name = (Cmd.argv.length > 0)? Cmd.argv[0].toLowerCase():'id1';
 		var i;
 		for (i = 0; i < Cmd.functions.length; ++i)
 		{
