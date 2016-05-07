@@ -492,9 +492,11 @@ M.MultiPlayer_Key = function(k)
 		S.LocalSound(M.sfx_menu3);
 		return;
 	case Key.k.enter:
+		console.log(M.multiplayer_cursor)
 		switch (M.multiplayer_cursor)
 		{
 		case 0:
+		case 4:
 			S.LocalSound(M.sfx_menu2);
 			if (WEBS.available !== true)
 				return;
@@ -503,7 +505,10 @@ M.MultiPlayer_Key = function(k)
 			Cmd.text += 'connect "';
 			if (M.multiplayer_joinname.substring(0, 5) !== 'ws://')
 				Cmd.text += 'ws://';
-			Cmd.text += M.multiplayer_joinname + '"\n';
+			Cmd.text += M.multiplayer_joinname
+			if (M.multiplayer_joinname.indexOf(':' == -1))
+				Cmd.text += ':26000'
+			Cmd.text += '"\n';
 			return;
 		case 2:
 			S.LocalSound(M.sfx_menu3);
@@ -513,7 +518,7 @@ M.MultiPlayer_Key = function(k)
 			S.LocalSound(M.sfx_menu3);
 			(M.multiplayer_bottom <= 12) ? ++M.multiplayer_bottom : M.multiplayer_bottom = 0;
 			return;
-		case 4:
+		case 1:
 			if (CL.name.string !== M.multiplayer_myname)
 				Cmd.text += 'name "' + M.multiplayer_myname + '"\n';
 			if ((M.multiplayer_top !== M.multiplayer_oldtop) || (M.multiplayer_bottom !== M.multiplayer_oldbottom))
