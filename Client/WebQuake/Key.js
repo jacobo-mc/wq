@@ -51,6 +51,10 @@ Key.k = {
     joy10: 214,
     joy11: 215,
     joy12: 216,
+    joy13: 217,
+    joy14: 218,
+    joy15: 219,
+    joy16: 220,
 
 
 	mwheelup: 239,
@@ -121,6 +125,10 @@ Key.names = [
 	{name: 'JOY10', keynum: Key.k.joy10},
 	{name: 'JOY11', keynum: Key.k.joy11},
 	{name: 'JOY12', keynum: Key.k.joy12},
+	{name: 'JOY13', keynum: Key.k.joy13},
+	{name: 'JOY14', keynum: Key.k.joy14},
+	{name: 'JOY15', keynum: Key.k.joy15},
+	{name: 'JOY16', keynum: Key.k.joy16},
 	{name: 'PAUSE', keynum: Key.k.pause},
 	{name: 'MWHEELUP', keynum: Key.k.mwheelup},
 	{name: 'MWHEELDOWN', keynum: Key.k.mwheeldown},
