@@ -53,7 +53,7 @@ Store = (function(){
 				try {
 					var store = db.transaction(['pak'], 'readwrite').objectStore('pak');
 					
-					request = store.add({
+					request = store.put({
 						pakName: name,
 						data: blob});
 						

@@ -18,7 +18,7 @@ S.listener_up = [0.0, 0.0, 0.0];
 S.known_sfx = [];
 S.cloneNode = function(sfx, permanentNode) {
 	//permanentNode = true
-	console.log('setup clone',sfx.name,sfx)
+	//console.log('setup clone',sfx.name,sfx)
 	var node = sfx.cache.data
 	var aud = node.cloneNode();
 	/*
@@ -29,7 +29,7 @@ S.cloneNode = function(sfx, permanentNode) {
 	// i hate timeouts, but this seems to work
 	if (! permanentNode) {
 		var t = sfx.cache.length
-		console.log('remove',sfx.name,'in',t)
+		//console.log('remove',sfx.name,'in',t)
 		setTimeout( function() {
 			aud.src = ''
 			aud.parentNode.removeChild(aud)
@@ -148,11 +148,11 @@ S.NoteOff = function(sfx, node)
 S.NoteOn = function(sfx, node)
 {
 	if (node.playbackState == S.FINISHED) {
-		console.log("ERROR cannot play audiosource more than once. clone it and play again?",sfx.name)
+		//console.log("ERROR cannot play audiosource more than once. clone it and play again?",sfx.name)
 		debugger
 		return
 	} else if (node.playbackState == S.PLAYING) {
-		console.log('already palying...')
+		//console.log('already palying...')
 		debugger
 	}
 	
@@ -323,7 +323,7 @@ S.StartSound = function(entnum, entchannel, sfx, origin, vol, attenuation)
 			nodes.source.buffer = sfx.cache.data;
 			if (sfx.cache.loopstart != null)
 			{
-				console.log('startsound looping',sfx.name)
+				//console.log('startsound looping',sfx.name)
 				nodes.source.loop = true;
 				nodes.source.loopStart = sfx.cache.loopstart;
 				nodes.source.loopEnd = nodes.source.buffer.length;

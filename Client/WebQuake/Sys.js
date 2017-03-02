@@ -223,13 +223,13 @@ window._localStorage = { data: {},
 							chrome.storage.local.set(d, function(){})
 						}
 					  }
-
+var startup_delay = 1000 // 2000
 window.onload = setTimeout(function() {
 	chrome.storage.local.get(null, function(rd) {
 		window._localStorage.data = rd
 		window.onload_()
 	})
-}, 2000)
+}, startup_delay)
 
 if (! window.chrome.runtime) {
 	Sys.onbeforeunload = function()
